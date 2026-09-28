@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Ather Pro Live Tactical Map</title>
+  <title>ScootScribe Scooter Map</title>
   <!-- Bundled Leaflet + rotate — CDN misses left heading-up broken / inverted. -->
   <link rel="stylesheet" href="leaflet/leaflet.css" />
   <style>
@@ -26,7 +26,7 @@
       height: 100%;
       position: relative;
       overflow: hidden;
-      border-radius: 50%;
+      border-radius: 18px;
       touch-action: none;
       overscroll-behavior: contain;
     }
@@ -92,7 +92,8 @@
     body[data-theme="day"] .leaflet-container { background: #e8e8e0 !important; }
     .leaflet-tile { backface-visibility: hidden; }
     #north-ring {
-      position: absolute; inset: 5px; z-index: 900; pointer-events: none;
+      position: absolute; top: 12px; left: 12px; width: 54px; height: 54px;
+      z-index: 900; pointer-events: none; background: rgba(21,25,29,.75);
       border: 1px solid rgba(0, 229, 255, 0.35); border-radius: 50%;
       transform-origin: center;
     }
@@ -107,7 +108,9 @@
       background: rgba(21, 25, 29, 0.92); color: #f3f0ea; font-size: 11px;
       max-width: 65%; text-align: center;
     }
-    #camera-status { bottom: 22px; }
+    #camera-status { bottom: 14px; min-height: 44px; }
+    #empty-status { position: absolute; top: 42%; left: 10%; width: 80%; text-align: center; z-index: 920; padding: 12px; border-radius: 12px; background: rgba(21,25,29,.9); pointer-events: none; }
+    @media (prefers-reduced-motion: reduce) { .ather-marker-pulse, .phone-marker-pulse { animation: none; } }
     #tile-status { top: 35px; }
     [hidden] { display: none !important; }
 
@@ -203,6 +206,7 @@
     <div id="map"></div>
     <div id="north-ring" aria-hidden="true"><span>N</span></div>
     <button id="camera-status" type="button" aria-label="Follow current location">Heading up</button>
+    <div id="empty-status" role="status">Waiting for a location…</div>
     <button id="tile-status" type="button" hidden>Map tiles unavailable · Retry</button>
   </div>
   <script src="leaflet/leaflet.js"></script>

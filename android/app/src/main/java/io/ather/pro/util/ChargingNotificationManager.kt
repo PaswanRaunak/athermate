@@ -143,7 +143,7 @@ class ChargingNotificationManager private constructor(private val context: Conte
         notificationManager.cancel(NOTIFICATION_ID_CHARGE_LIMIT)
     }
 
-    fun update(telemetry: ScooterTelemetry) {
+    fun update(telemetry: ScooterTelemetry, showProgress: Boolean = true) {
         val (isConnected, isCharging) = VehicleAlertEvaluator.isChargingConnected(telemetry)
         val chargeDecision = VehicleAlertEvaluator.evaluateCharging(
             previous = chargingLatch,
@@ -154,7 +154,7 @@ class ChargingNotificationManager private constructor(private val context: Conte
         chargingLatch = chargeDecision.latch
         persistChargingLatch()
 
-        if (chargeDecision.showProgress) {
+        if (showProgress && chargeDecision.showProgress) {
             telemetry.batterySoc?.let { soc ->
                 postProgressNotification(
                     soc,

@@ -36,9 +36,9 @@ class MainActivity : ComponentActivity() {
         // Permissions handled
     }
 
-    private val sessionStore by lazy { SecureSessionStore(applicationContext) }
-    private val authApi by lazy { AtherAuthApi() }
-    private val repository by lazy { AtherRepository.getInstance(applicationContext) }
+    private val sessionStore get() = appContainer.sessionStore
+    private val authApi get() = appContainer.authApi
+    private val repository get() = appContainer.repository
 
     private val authViewModel: AuthViewModel by viewModels {
         AuthViewModel.Factory(sessionStore, authApi, repository)
@@ -50,10 +50,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
-            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.BLACK)
-        )
+        enableEdgeToEdge()
 
         ChargingNotificationManager.getInstance(applicationContext).createNotificationChannels()
 
@@ -72,20 +69,12 @@ class MainActivity : ComponentActivity() {
             permissionLauncher.launch(ungranted.toTypedArray())
         }
 
-        repository.onAuthenticationRequired = {
-            runOnUiThread { authViewModel.logout() }
-        }
-
-        // Resume an existing valid encrypted session without forcing OTP again.
-        sessionStore.current()?.takeIf { it.isComplete }?.let { session ->
-            repository.applyCredentials(session.token, session.vehicleUuid)
-        }
-
         setContent {
             AtherProTheme {
                 val authState by authViewModel.ui.collectAsStateWithLifecycle()
                 val dashboard by dashboardViewModel.dashboard.collectAsStateWithLifecycle()
                 val chargeLimit by dashboardViewModel.chargeLimit.collectAsStateWithLifecycle()
+                val monitoring by appContainer.monitoring.state.collectAsStateWithLifecycle()
 
                 Surface(
                     modifier = Modifier.fillMaxSize(),
@@ -107,6 +96,8 @@ class MainActivity : ComponentActivity() {
                             session = requireNotNull(authState.session),
                             dashboard = dashboard,
                             chargeLimit = chargeLimit,
+                            monitoring = monitoring,
+                            onMonitoringChange = appContainer.monitoring::setAlwaysEnabled,
                             onRefresh = dashboardViewModel::refresh,
                             onModelChange = dashboardViewModel::setScooterModel,
                             onTariffChange = dashboardViewModel::setTariffRate,
@@ -118,9 +109,6 @@ class MainActivity : ComponentActivity() {
                                 dashboardViewModel.setChargeLimit(enabled, chargeLimit.percent)
                             },
                             onChargeLimitPercentChange = { percent ->
-                                // Choosing a target is an explicit request to enforce it.
-                                // This immediately evaluates current live SoC: at/above
-                                // target sends Stop; below target monitors until crossing.
                                 dashboardViewModel.setChargeLimit(true, percent)
                             },
                             onChargeLimitRetry = dashboardViewModel::retryChargeLimit,
@@ -131,4 +119,14 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+    override fun onStart() {
+        super.onStart()
+        appContainer.monitoring.onVisible()
+    }
+
+    override fun onStop() {
+        appContainer.monitoring.onHidden()
+        super.onStop()
+    }
+
 }

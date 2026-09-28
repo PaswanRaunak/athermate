@@ -1,6 +1,8 @@
 package io.ather.pro.data.local
 
 import android.content.Context
+import io.ather.pro.domain.battery.RideSample
+import io.ather.pro.domain.battery.RideHistory
 import io.ather.pro.domain.model.TelemetrySample
 import io.ather.pro.domain.model.TripRecord
 
@@ -43,6 +45,10 @@ class DashboardLocalStore(context: Context) {
             .map(TelemetrySampleEntity::fromDomain)
         dao.replaceTelemetryHistory(sanitized)
     }
+
+    fun loadRideHistory(): List<RideSample> = dao.loadRideHistory().map(RideSampleEntity::toDomain).takeLast(RideHistory.MAX_SAMPLES)
+
+    fun saveRideHistory(samples: List<RideSample>) = dao.saveRideHistory(samples.takeLast(RideHistory.MAX_SAMPLES).map(RideSampleEntity::fromDomain))
 
     fun loadTripBaseline(): TripBaseline? = dao.loadTripBaseline()?.toDomain()
 

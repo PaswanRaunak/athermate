@@ -35,6 +35,7 @@ class AtherApiClient {
         .retryOnConnectionFailure(true)
         .build()
 
+    private val httpClient = client.newBuilder().readTimeout(30, TimeUnit.SECONDS).callTimeout(30, TimeUnit.SECONDS).build()
     private val gson = Gson()
 
     fun connect(token: String, uuid: String, listener: Listener): WebSocket {
@@ -62,8 +63,12 @@ class AtherApiClient {
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: okhttp3.Response?) {
-                listener.onError(t.message ?: "Ather connection failed")
-                listener.onDisconnected(t.message ?: "Connection failed")
+                val message = if (response?.code == 401) "Session expired (401)" else t.message ?: "Connection failed"
+                listener.onDisconnected(message)
+            }
+
+            override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+                webSocket.close(code, reason)
             }
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
@@ -92,7 +97,7 @@ class AtherApiClient {
             .header("Content-Type", "application/json; charset=utf-8")
             .post(payload.toString().toRequestBody(JSON_MEDIA_TYPE))
             .build()
-        client.newCall(request).enqueue(resultCallback(callback))
+        httpClient.newCall(request).enqueue(resultCallback(callback))
     }
 
     /** Gateway adapter for [io.ather.pro.domain.charging.RemoteChargingDispatcher]. */
@@ -133,7 +138,7 @@ class AtherApiClient {
             .atherHeaders(token)
             .get()
             .build()
-        client.newCall(request).enqueue(object : Callback {
+        httpClient.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, error: IOException) {
                 callback(Result.failure(error))
             }
@@ -183,7 +188,7 @@ class AtherApiClient {
             .addHeader("X-Request-Source", "ATHER_APP")
             .get()
             .build()
-        client.newCall(request).enqueue(object : Callback {
+        httpClient.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, error: IOException) {
                 callback(Result.failure(error))
             }
@@ -434,7 +439,14 @@ class AtherApiClient {
             if (flagVal != null) featureFlags[k] = flagVal
         }
 
-        val hasMeaningfulData = battery != null ||
+        // Only explicit percentage fields qualify. A health score, capacity, or age is not SoH.
+        val bms = root.resolveObject("telemetry.bms", "bms")
+        val reportedSoh = (bike.decimal("soh_percent", "battery_soh_percent")
+            ?: bms.decimal("soh_percent", "state_of_health_percent")
+            ?: root.decimal("telemetry.bike.soh_percent", "telemetry.bike.battery_soh_percent"))
+            ?.takeIf { it.isFinite() && it in 0.0..100.0 }
+
+        val hasMeaningfulData = reportedSoh != null || battery != null ||
             range != null ||
             odo != null ||
             vehicleState != null ||
@@ -458,6 +470,7 @@ class AtherApiClient {
 
         return ScooterTelemetry(
             batterySoc = battery,
+            reportedSohPercent = reportedSoh,
             rangeKm = range,
             odoKm = odo,
             vehicleState = vehicleState,

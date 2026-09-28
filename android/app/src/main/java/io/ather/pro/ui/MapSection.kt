@@ -90,6 +90,10 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import io.ather.pro.domain.model.GpsData
+import io.ather.pro.ui.maps.StreetMapView
+import androidx.compose.runtime.rememberUpdatedState
+import java.text.DateFormat
+import java.util.Date
 import java.util.Locale
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -101,7 +105,8 @@ import kotlinx.coroutines.delay
 @Composable
 fun MapSection(
     gps: GpsData?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    gpsUpdatedAt: Long? = null
 ) {
     val context = LocalContext.current
     val colorScheme = MaterialTheme.colorScheme
@@ -121,6 +126,7 @@ fun MapSection(
     val atherLng = gps?.longitude?.takeIf { it.isFinite() && it in -180.0..180.0 }
     val atherAcc = gps?.accuracyMeters?.takeIf { it.isFinite() && it >= 0.0 }
     val atherAlt = gps?.altitudeMeters?.takeIf(Double::isFinite)
+    val scooterReference by rememberUpdatedState(gps)
     val hasScooterFix = atherLat != null && atherLng != null
 
     // Phone / User live GPS and Compass states
@@ -204,8 +210,8 @@ fun MapSection(
 
                 // Android's orientation is magnetic-north referenced. Correct it so the map,
                 // marker, and north pip all use the same true-north reference.
-                val referenceLat = phoneLat ?: atherLat ?: 0.0
-                val referenceLng = phoneLng ?: atherLng ?: 0.0
+                val referenceLat = phoneLat ?: scooterReference?.latitude ?: 0.0
+                val referenceLng = phoneLng ?: scooterReference?.longitude ?: 0.0
                 val declination = GeomagneticField(
                     referenceLat.toFloat(),
                     referenceLng.toFloat(),
@@ -307,10 +313,10 @@ fun MapSection(
         fun startCompass() {
             sensorManager?.unregisterListener(compassListener)
             if (rotationSensor != null && sensorManager != null) {
-                sensorManager.registerListener(compassListener, rotationSensor, SensorManager.SENSOR_DELAY_GAME)
+                sensorManager.registerListener(compassListener, rotationSensor, SensorManager.SENSOR_DELAY_UI)
             } else if (sensorManager != null) {
-                if (accelSensor != null) sensorManager.registerListener(compassListener, accelSensor, SensorManager.SENSOR_DELAY_GAME)
-                if (magnetSensor != null) sensorManager.registerListener(compassListener, magnetSensor, SensorManager.SENSOR_DELAY_GAME)
+                if (accelSensor != null) sensorManager.registerListener(compassListener, accelSensor, SensorManager.SENSOR_DELAY_UI)
+                if (magnetSensor != null) sensorManager.registerListener(compassListener, magnetSensor, SensorManager.SENSOR_DELAY_UI)
             }
         }
         val observer = LifecycleEventObserver { _, event ->
@@ -378,7 +384,8 @@ fun MapSection(
         refreshSubscription = {
             hasLocationPermission = checkLocationPermission(context)
             locationServicesOn = checkLocationServicesEnabled(context)
-            if (!hasLocationPermission || !locationServicesOn || locationManager == null) {
+            if (!lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) ||
+                !hasLocationPermission || !locationServicesOn || locationManager == null) {
                 unsubscribe()
                 if (!locationServicesOn || !hasLocationPermission) clearPhoneFix()
             } else {
@@ -587,7 +594,7 @@ fun MapSection(
                     )
                     Spacer(Modifier.width(7.dp))
                     Text(
-                        text = "LIVE MAP",
+                        text = "SCOOTER LOCATION",
                         color = colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
                     )
@@ -629,6 +636,9 @@ fun MapSection(
                     }, label = { Text(label) })
                 }
                 androidx.compose.material3.TextButton(onClick = {
+                    webViewInstance?.evaluateJavascript("window.followScooter();", null)
+                }, enabled = hasScooterFix) { Text("Scooter") }
+                androidx.compose.material3.TextButton(onClick = {
                     webViewInstance?.evaluateJavascript("window.fitBoth();", null)
                 }) { Text("Show both") }
             }
@@ -639,68 +649,22 @@ fun MapSection(
                     .fillMaxWidth(),
                 contentAlignment = Alignment.Center
             ) {
-                val circleDiameter = maxWidth - 4.dp
+                val mapHeight = (maxWidth * 1.25f).coerceIn(340.dp, 520.dp)
 
                 Box(
                     modifier = Modifier
-                        .size(circleDiameter)
-                        .clip(CircleShape)
+                        .fillMaxWidth()
+                        .height(mapHeight)
+                        .clip(RoundedCornerShape(18.dp))
                         .background(Color(0xFF0B0D0F)),
                     contentAlignment = Alignment.Center
                 ) {
                     // Layer 1: Live Leaflet Street Map (1:1 Touch Geometry - perfectly responsive dragging & panning)
-                    AndroidView(
-                        modifier = Modifier.matchParentSize(),
-                        factory = { ctx ->
-                            WebView(ctx).apply {
-                                layoutParams = ViewGroup.LayoutParams(
-                                    ViewGroup.LayoutParams.MATCH_PARENT,
-                                    ViewGroup.LayoutParams.MATCH_PARENT
-                                )
-                                setBackgroundColor(android.graphics.Color.parseColor("#0B0D0F"))
-                                settings.apply {
-                                    javaScriptEnabled = true
-                                    domStorageEnabled = true
-                                    allowFileAccess = true
-                                    loadWithOverviewMode = true
-                                    useWideViewPort = true
-                                    cacheMode = WebSettings.LOAD_DEFAULT
-                                    mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
-                                    userAgentString = "AtherPro/1.0 " + userAgentString
-                                }
-                                setOnTouchListener { v, event ->
-                                    when (event.actionMasked) {
-                                        MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN, MotionEvent.ACTION_MOVE -> {
-                                            v.parent?.requestDisallowInterceptTouchEvent(true)
-                                        }
-                                        MotionEvent.ACTION_UP -> {
-                                            v.parent?.requestDisallowInterceptTouchEvent(false)
-                                            v.performClick()
-                                        }
-                                        MotionEvent.ACTION_CANCEL -> {
-                                            v.parent?.requestDisallowInterceptTouchEvent(false)
-                                        }
-                                    }
-                                    false
-                                }
-                                webViewClient = object : WebViewClient() {
-                                    override fun onPageFinished(view: WebView?, url: String?) {
-                                        super.onPageFinished(view, url)
-                                        pageLoaded = true
+                    StreetMapView(modifier = Modifier.matchParentSize()) { view ->
+                        webViewInstance = view
+                        pageLoaded = view != null
+                    }
 
-                                    }
-                                }
-                                loadUrl("file:///android_asset/map.html")
-                                webViewInstance = this
-                            }
-                        },
-                        onRelease = { view ->
-                            pageLoaded = false
-                            webViewInstance = null
-                            view.stopLoading()
-                            view.destroy()
-                        }
-                    )
                 }
 
                 // Floating Zoom and Fit Controls Overlay (Right side of Map)
@@ -719,7 +683,7 @@ fun MapSection(
                             onClick = {
                                 webViewInstance?.evaluateJavascript("if (window.zoomIn) { window.zoomIn(); }", null)
                             },
-                            modifier = Modifier.size(36.dp)
+                            modifier = Modifier.size(48.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Add,
@@ -739,7 +703,7 @@ fun MapSection(
                             onClick = {
                                 webViewInstance?.evaluateJavascript("if (window.zoomOut) { window.zoomOut(); }", null)
                             },
-                            modifier = Modifier.size(36.dp)
+                            modifier = Modifier.size(48.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Remove,
@@ -759,7 +723,7 @@ fun MapSection(
                             onClick = {
                                 webViewInstance?.evaluateJavascript("if (window.followMe) { window.followMe(); }", null)
                             },
-                            modifier = Modifier.size(36.dp)
+                            modifier = Modifier.size(48.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.CenterFocusStrong,
@@ -778,7 +742,7 @@ fun MapSection(
                         IconButton(
                             onClick = { recalibrateToken += 1 },
                             modifier = Modifier
-                                .size(36.dp)
+                                .size(48.dp)
                                 .semantics {
                                     contentDescription = "Recalibrate compass. Hold phone still for a few seconds"
                                 }
@@ -871,7 +835,7 @@ fun MapSection(
                     Spacer(Modifier.width(6.dp))
                     Column {
                         Text(
-                            text = "ATHER SCOOTER (ROUND DOT)",
+                            text = "SCOOTER",
                             color = colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.5.sp, fontWeight = FontWeight.SemiBold)
                         )
@@ -879,7 +843,7 @@ fun MapSection(
                             text = atherAcc?.let {
                                 val accuracy = if (it < 1.0) "${(it * 100).toInt()} cm" else "${String.format(Locale.US, "%.1f", it)} m"
                                 "Accuracy: ±$accuracy"
-                            } ?: "Scooter fix unavailable",
+                            } ?: if (hasScooterFix) "Accuracy unknown" else "Waiting for scooter GPS",
                             color = colorScheme.onSurface,
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 11.sp)
                         )
@@ -897,7 +861,7 @@ fun MapSection(
                     Spacer(Modifier.width(6.dp))
                     Column(horizontalAlignment = Alignment.End) {
                         Text(
-                            text = "PHONE GPS (ARROW)",
+                            text = "YOUR PHONE",
                             color = colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.5.sp, fontWeight = FontWeight.SemiBold)
                         )
@@ -926,6 +890,12 @@ fun MapSection(
                         )
                     }
                 }
+            }
+
+            gpsUpdatedAt?.let { timestamp ->
+                Text("Scooter location received " + DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(timestamp)),
+                    modifier = Modifier.padding(top = 8.dp), style = MaterialTheme.typography.bodySmall,
+                    color = colorScheme.onSurfaceVariant)
             }
 
             // Live distance guidance banner

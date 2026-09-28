@@ -4,12 +4,19 @@ import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
 import io.ather.pro.domain.model.ScooterDashboardState
+import io.ather.pro.domain.charging.ChargeLimitController
 
 object DashboardWidgetUpdater {
-    fun publish(context: Context, state: ScooterDashboardState) {
+    fun publish(context: Context, state: ScooterDashboardState, limit: ChargeLimitController.Snapshot = ChargeLimitController.Snapshot()) {
         val appContext = context.applicationContext
-        DashboardWidgetSnapshot.save(appContext, DashboardWidgetSnapshot.fromDashboard(state))
+        if (state.telemetry == null && state.lastUpdated == null) return
+        DashboardWidgetSnapshot.save(appContext, DashboardWidgetSnapshot.fromDashboard(state, limit))
         refreshAll(appContext)
+    }
+
+    fun clear(context: Context) {
+        DashboardWidgetSnapshot.save(context, DashboardWidgetSnapshot())
+        refreshAll(context)
     }
 
     fun refreshAll(context: Context) {

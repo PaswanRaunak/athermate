@@ -1,28 +1,12 @@
 package io.ather.pro.ui
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
@@ -40,122 +24,49 @@ fun ChargeLimitCard(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val colorScheme = MaterialTheme.colorScheme
-    var sliderValue by remember(snapshot.percent) {
-        mutableFloatStateOf(snapshot.percent.toFloat())
-    }
-    val selectedPercent = sliderValue.roundToInt()
-    val statusLabel = when (snapshot.status) {
+    var selected by rememberSaveable(snapshot.percent) { mutableIntStateOf(snapshot.percent) }
+    val pending = snapshot.status == ChargeLimitController.Status.PENDING
+    val status = when (snapshot.status) {
         ChargeLimitController.Status.DISABLED -> "Off"
         ChargeLimitController.Status.MONITORING -> "Monitoring"
-        ChargeLimitController.Status.PENDING -> "Pending"
-        ChargeLimitController.Status.CONFIRMED -> "Confirmed"
-        ChargeLimitController.Status.ERROR -> "Error"
+        ChargeLimitController.Status.PENDING -> "Waiting for scooter confirmation"
+        ChargeLimitController.Status.CONFIRMED -> "Stop confirmed"
+        ChargeLimitController.Status.ERROR -> "Needs attention"
     }
-
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .semantics(mergeDescendants = true) {
-                contentDescription =
-                    "Charge limit $statusLabel at ${snapshot.percent} percent"
-            },
-        colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
-        shape = RoundedCornerShape(20.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "CHARGE LIMIT",
-                        color = colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.labelSmall
-                    )
-                    Text(
-                        text = "Stop at $selectedPercent%",
-                        color = colorScheme.onSurface,
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                    )
+    Card(modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
+        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Automatic charge limit", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(if (snapshot.enabled) "${snapshot.percent}% · $status" else status,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (snapshot.status == ChargeLimitController.Status.ERROR) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary)
                 }
-                Switch(
-                    checked = snapshot.enabled,
-                    onCheckedChange = onEnabledChange,
-                    colors = SwitchDefaults.colors(
-                        checkedTrackColor = colorScheme.secondary,
-                        checkedThumbColor = colorScheme.onSecondary
-                    )
-                )
+                if (snapshot.enabled) TextButton(onClick = { onEnabledChange(false) }) { Text("Turn off") }
             }
-
-            Text(
-                text = "Selected: $selectedPercent%",
-                color = colorScheme.secondary,
-                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
-            )
-
-            Slider(
-                value = sliderValue,
-                onValueChange = { sliderValue = it.roundToInt().toFloat() },
-                // Commit once when the rider releases the thumb. Moving the slider
-                // also enables/arms the limit through MainActivity's callback.
-                onValueChangeFinished = { onPercentChange(sliderValue.roundToInt()) },
-                valueRange = ChargeLimitController.MIN_PERCENT.toFloat()..
-                    ChargeLimitController.MAX_PERCENT.toFloat(),
+            Text("Stop at $selected%", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            Slider(value = selected.toFloat(), onValueChange = { selected = it.roundToInt() },
+                valueRange = ChargeLimitController.MIN_PERCENT.toFloat()..ChargeLimitController.MAX_PERCENT.toFloat(),
                 steps = ChargeLimitController.MAX_PERCENT - ChargeLimitController.MIN_PERCENT - 1,
-                enabled = true,
-                colors = SliderDefaults.colors(
-                    thumbColor = colorScheme.secondary,
-                    activeTrackColor = colorScheme.secondary
-                ),
-                modifier = Modifier.semantics {
-                    contentDescription = "Charge limit percent slider"
+                modifier = Modifier.semantics { contentDescription = "Charge target percent" })
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(60, 70, 80, 90, 100).forEach { target ->
+                    FilterChip(selected = selected == target, onClick = { selected = target }, label = { Text("$target%") })
                 }
-            )
-
-            Text(
-                text = "Status: $statusLabel",
-                color = when (snapshot.status) {
-                    ChargeLimitController.Status.ERROR -> colorScheme.error
-                    ChargeLimitController.Status.CONFIRMED -> colorScheme.secondary
-                    ChargeLimitController.Status.PENDING -> colorScheme.tertiary
-                    else -> colorScheme.onSurfaceVariant
-                },
-                style = MaterialTheme.typography.labelMedium
-            )
-
-            snapshot.message?.let { msg ->
-                Text(
-                    text = msg,
-                    color = colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall
-                )
             }
-
-            Text(
-                text = "Phone-app automation only — not a scooter firmware limit. " +
-                    "If the phone is offline, force-stopped, or loses network, this limit will not enforce.",
-                color = colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
-                style = MaterialTheme.typography.bodySmall
-            )
-
+            Button(onClick = { onPercentChange(selected) }, modifier = Modifier.fillMaxWidth(),
+                enabled = !pending && (!snapshot.enabled || selected != snapshot.percent)) {
+                Text(if (snapshot.enabled) "Apply $selected% limit" else "Enable $selected% limit")
+            }
+            if (snapshot.enabled && selected != snapshot.percent) Text("New target has not been applied.", style = MaterialTheme.typography.bodySmall)
+            snapshot.message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
             if (snapshot.status == ChargeLimitController.Status.ERROR) {
-                Spacer(Modifier.height(4.dp))
-                Button(
-                    onClick = onRetry,
-                    colors = ButtonDefaults.buttonColors(containerColor = colorScheme.secondary)
-                ) {
-                    Text("Retry limit")
-                }
+                OutlinedButton(onClick = onRetry) { Text("Retry stop at ${snapshot.percent}%") }
             }
+            Text("This phone sends a stop request at or above the target and retries up to three times if fresh readings still show charging. Keep background monitoring and internet available. A force-stopped or offline app cannot enforce the limit.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (snapshot.enabled) Text("Turn the limit off before resuming a charge above ${snapshot.percent}%.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

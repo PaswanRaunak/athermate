@@ -4,15 +4,18 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [
         TripEntity::class,
         TelemetrySampleEntity::class,
         TripBaselineEntity::class,
-        MetaEntity::class
+        MetaEntity::class,
+        RideSampleEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AtherDatabase : RoomDatabase() {
@@ -31,10 +34,15 @@ abstract class AtherDatabase : RoomDatabase() {
                     AtherDatabase::class.java,
                     DB_NAME
                 )
-                    .fallbackToDestructiveMigration()
-                    .allowMainThreadQueries()
+                    .addMigrations(MIGRATION_1_2)
                     .build()
                     .also { INSTANCE = it }
+            }
+        }
+
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS `ride_history` (`timestamp` INTEGER NOT NULL, `speedKmh` REAL, `odometerKm` REAL, `rangeKm` REAL, PRIMARY KEY(`timestamp`))")
             }
         }
 

@@ -18,6 +18,8 @@ object ChargeLimitController {
     const val DEFAULT_PERCENT = MAX_PERCENT
     const val CONFIRM_TIMEOUT_MS: Long = 45_000L
     const val FRESH_MAX_AGE_MS: Long = 30_000L
+    const val AUTO_RETRY_DELAY_MS: Long = 60_000L
+    const val MAX_AUTO_ATTEMPTS = 3
 
     enum class Status {
         DISABLED,
@@ -34,7 +36,9 @@ object ChargeLimitController {
         val message: String? = null,
         /** When true, a threshold crossing may request exactly one stop. */
         val armed: Boolean = false,
-        val pendingSinceMs: Long? = null
+        val pendingSinceMs: Long? = null,
+        val attempts: Int = 0,
+        val lastAttemptMs: Long? = null
     )
 
     sealed class Decision {
@@ -64,6 +68,7 @@ object ChargeLimitController {
         }
         val settingsChanged =
             !previous.enabled || previous.percent != clamped
+        if (!settingsChanged) return previous
         return Snapshot(
             enabled = true,
             percent = clamped,
@@ -88,7 +93,9 @@ object ChargeLimitController {
             status = Status.MONITORING,
             message = "Retry armed — will stop once at ${previous.percent}% if still charging.",
             armed = true,
-            pendingSinceMs = null
+            pendingSinceMs = null,
+            attempts = 0,
+            lastAttemptMs = null
         )
     }
 
@@ -98,7 +105,8 @@ object ChargeLimitController {
         lastUpdatedMs: Long?,
         nowMs: Long,
         freshMaxAgeMs: Long = FRESH_MAX_AGE_MS,
-        confirmTimeoutMs: Long = CONFIRM_TIMEOUT_MS
+        confirmTimeoutMs: Long = CONFIRM_TIMEOUT_MS,
+        chargingUpdatedMs: Long? = lastUpdatedMs
     ): Decision {
         if (!state.enabled) {
             return if (state.status == Status.DISABLED && !state.armed && state.message == null) {
@@ -120,21 +128,23 @@ object ChargeLimitController {
         val plugged = ChargingControl.isPluggedIn(telemetry)
         val active = ChargingControl.isActivelyCharging(telemetry)
         val fresh = isFresh(lastUpdatedMs, nowMs, freshMaxAgeMs)
-        val soc = telemetry?.batterySoc
+        val chargeFresh = isFresh(chargingUpdatedMs, nowMs, freshMaxAgeMs)
+        val soc = telemetry?.batterySoc?.takeIf { it.isFinite() && it in 0.0..100.0 }
 
         // Pending confirmation / timeout first.
         if (state.status == Status.PENDING) {
-            val started = state.pendingSinceMs ?: nowMs
-            if (nowMs - started >= confirmTimeoutMs) {
+            val started = state.pendingSinceMs
+            if (started == null || nowMs < started || nowMs - started >= confirmTimeoutMs) {
                 return Decision.StateOnly(
                     state.copy(
                         status = Status.ERROR,
-                        message = "Stop request timed out. Retry when still plugged and charging.",
+                        message = if (state.attempts < MAX_AUTO_ATTEMPTS) "No stop confirmation yet. A fresh charging reading will trigger a bounded retry." else "Stop not confirmed after $MAX_AUTO_ATTEMPTS attempts. Check the scooter and tap Retry.",
                         pendingSinceMs = null
                     )
                 )
             }
-            if (fresh && !active) {
+            if (telemetry != null && chargeFresh && chargingUpdatedMs != null &&
+                chargingUpdatedMs >= started && ChargingEvidence.hasChargeReading(telemetry) && !active) {
                 return Decision.StateOnly(
                     state.copy(
                         status = Status.CONFIRMED,
@@ -158,7 +168,9 @@ object ChargeLimitController {
                             status = Status.PENDING,
                             message = "Charging restarted above ${state.percent}% (SoC ${soc.toInt()}%). Sending one stop…",
                             armed = false,
-                            pendingSinceMs = nowMs
+                            pendingSinceMs = nowMs,
+                            attempts = 1,
+                            lastAttemptMs = nowMs
                         )
                     )
                 } else {
@@ -172,10 +184,11 @@ object ChargeLimitController {
                     )
                 }
             }
-            if (!plugged) {
+            if (telemetry != null && chargeFresh && !plugged) {
                 return Decision.StateOnly(
                     state.copy(
                         status = Status.MONITORING,
+                        attempts = 0, lastAttemptMs = null,
                         message = "Ready to enforce ${state.percent}% on the next charging session.",
                         armed = true,
                         pendingSinceMs = null
@@ -185,12 +198,22 @@ object ChargeLimitController {
             return Decision.None
         }
 
-        // ERROR stays until retry / settings change; still re-arm on unplug for next session.
+        // Retry only with fresh charge evidence, a cooldown and a persisted attempt budget.
         if (state.status == Status.ERROR) {
-            if (!plugged && !state.armed) {
+            if (fresh && active && plugged && soc != null && soc >= state.percent &&
+                state.attempts < MAX_AUTO_ATTEMPTS && state.lastAttemptMs != null &&
+                nowMs - state.lastAttemptMs >= AUTO_RETRY_DELAY_MS) {
+                return Decision.RequestStop(state.copy(
+                    status = Status.PENDING, armed = false, pendingSinceMs = nowMs,
+                    attempts = state.attempts + 1, lastAttemptMs = nowMs,
+                    message = "Still at/above ${state.percent}%. Retrying stop (${state.attempts + 1}/$MAX_AUTO_ATTEMPTS)…"
+                ))
+            }
+            if (telemetry != null && chargeFresh && !plugged && !state.armed) {
                 return Decision.StateOnly(
                     state.copy(
                         status = Status.MONITORING,
+                        attempts = 0, lastAttemptMs = null,
                         message = "Ready for the next charging session.",
                         armed = true,
                         pendingSinceMs = null
@@ -233,7 +256,9 @@ object ChargeLimitController {
                     status = Status.PENDING,
                     message = "Limit ${state.percent}% reached (SoC ${soc.toInt()}%). Sending one stop…",
                     armed = false,
-                    pendingSinceMs = nowMs
+                    pendingSinceMs = nowMs,
+                    attempts = state.attempts + 1,
+                    lastAttemptMs = nowMs
                 )
             )
         }

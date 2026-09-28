@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
-import { readFile, mkdtemp, rm } from 'node:fs/promises';
+import { readFile, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -95,6 +95,7 @@ try {
   }
   await send('Page.navigate', { url: `http://127.0.0.1:${server.address().port}/map.html` });
   await until('!!window.testMap && !!window.setMapHeading');
+  assert.equal(await evaluate('document.getElementById("empty-status").hidden'), false);
   await evaluate('updateAtherMarker(12.970,77.590,5); updatePhoneMarker(12.971,77.591,8,0);');
   await until('!document.getElementById("tile-status").hidden');
   failTiles = false;
@@ -159,6 +160,29 @@ try {
   await until('testMap.getBearing() === 0');
   assert.deepEqual(await evaluate('testMap.getCenter()'), { lat: 12.980, lng: 77.600 });
   assert.equal(await evaluate('document.getElementById("phone-marker-icon").style.transform'), 'rotate(225deg)');
+  await evaluate('followScooter(); updatePhoneMarker(12.982,77.602,8,225); updateAtherMarker(12.973,77.594,5)');
+  // Leaflet rounds the projected center to screen pixels; allow a sub-pixel geographic error.
+  await until('testMap.distance(testMap.getCenter(), [12.973,77.594]) < 2');
+  assert.match(await evaluate('document.getElementById("camera-status").textContent'), /Following scooter/);
+  console.log('PASS: follow scooter tracks its fixes without phone updates stealing the camera');
+
+  await evaluate('removeAtherMarker(); removePhoneMarker()');
+  assert.equal(await evaluate('document.getElementById("empty-status").hidden'), false);
+  await evaluate('updateAtherMarker(999,77,5)');
+  assert.equal(await evaluate('document.getElementById("empty-status").hidden'), false);
+  await evaluate('updateAtherMarker(12.973,77.594,5); updatePhoneMarker(12.974,77.595,8,225); fitBoth()');
+  assert.equal(await evaluate('document.getElementById("empty-status").hidden'), true);
+  console.log('PASS: missing or invalid GPS shows an empty state; valid fixes restore the map');
+
+  await send('Emulation.setDeviceMetricsOverride', { width: 400, height: 520, deviceScaleFactor: 1, mobile: true });
+  await until('testMap.getSize().y === 520');
+  await evaluate('fitBoth()');
+  assert.equal(await evaluate('getComputedStyle(document.getElementById("map-viewport")).borderRadius'), '18px');
+  if (process.env.MAP_TEST_SCREENSHOT) {
+    const screenshot = await send('Page.captureScreenshot', { format: 'png' });
+    await writeFile(process.env.MAP_TEST_SCREENSHOT, Buffer.from(screenshot.data, 'base64'));
+  }
+  console.log('PASS: expanded rectangular map resizes correctly');
   assert.deepEqual(runtimeErrors, []);
   console.log(`PASS: north-up and Follow restore correct orientation; no JavaScript errors (${tileRequests} local tile responses)`);
 } finally {

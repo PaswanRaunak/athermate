@@ -32,6 +32,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
@@ -65,7 +67,7 @@ private data class BatteryInspection(val frame: BatteryChartFrame, val point: Te
 
 /** One timeline for actual battery measurements, with persistent tap/drag selection. */
 @Composable
-fun BatteryHistoryCard(dashboard: ScooterDashboardState, modifier: Modifier = Modifier) {
+fun BatteryHistoryCard(dashboard: ScooterDashboardState, modifier: Modifier = Modifier, chargeLimitPercent: Int? = null) {
     val colors = MaterialTheme.colorScheme
     var window by remember { mutableStateOf(TimeWindow.MIN_5) }
     var nowMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -127,6 +129,8 @@ fun BatteryHistoryCard(dashboard: ScooterDashboardState, modifier: Modifier = Mo
                     )
                 }
             }
+            Text("100% at the top · 0% at the bottom" + (chargeLimitPercent?.let { " · Dashed limit $it%" } ?: ""),
+                style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
             Text(pointDescription, style = MaterialTheme.typography.bodyMedium,
                 color = colors.primary, fontWeight = FontWeight.SemiBold)
 
@@ -136,8 +140,8 @@ fun BatteryHistoryCard(dashboard: ScooterDashboardState, modifier: Modifier = Mo
                         color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                 }
             } else {
-                val low = (frame.points.minOf { it.batterySoc } - 1.0).coerceAtLeast(0.0)
-                val high = (frame.points.maxOf { it.batterySoc } + 1.0).coerceAtMost(100.0)
+                val low = 0.0
+                val high = 100.0
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("${String.format(Locale.US, "%.1f", low)}% – ${String.format(Locale.US, "%.1f", high)}%",
                         style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
@@ -158,7 +162,7 @@ fun BatteryHistoryCard(dashboard: ScooterDashboardState, modifier: Modifier = Mo
                             }
                         }
                         .pointerInput(window) {
-                            val inset = 8.dp.toPx()
+                            val inset = 36.dp.toPx()
                             awaitEachGesture {
                                 val down = awaitFirstDown(requireUnconsumed = false)
                                 val gestureFrame = latestFrame
@@ -194,17 +198,24 @@ fun BatteryHistoryCard(dashboard: ScooterDashboardState, modifier: Modifier = Mo
                             }
                         }
                 ) {
-                    val inset = 8.dp.toPx()
+                    val inset = 36.dp.toPx()
                     val plotWidth = (size.width - 2 * inset).coerceAtLeast(1f)
-                    val plotHeight = (size.height - 2 * inset).coerceAtLeast(1f)
+                    val topInset = 8.dp.toPx()
+                    val plotHeight = (size.height - 2 * topInset).coerceAtLeast(1f)
                     fun position(point: TelemetrySample) = Offset(
                         inset + frame.fractionAt(point.timestamp) * plotWidth,
-                        inset + (1.0 - (point.batterySoc - low) / (high - low).coerceAtLeast(1.0)).toFloat() * plotHeight
+                        topInset + (1.0 - (point.batterySoc - low) / (high - low).coerceAtLeast(1.0)).toFloat() * plotHeight
                     )
                     for (line in 0..4) {
-                        val y = inset + plotHeight * line / 4f
+                        val y = topInset + plotHeight * line / 4f
+                        drawContext.canvas.nativeCanvas.drawText("${100 - line * 25}%", 0f, y + 4.dp.toPx(), android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = colors.onSurfaceVariant.toArgb(); textSize = 10.dp.toPx() })
                         drawLine(colors.outline.copy(alpha = 0.3f), Offset(inset, y),
                             Offset(size.width - inset, y), 1.dp.toPx())
+                    }
+                    chargeLimitPercent?.let { target ->
+                        val y = topInset + (1f - target / 100f) * plotHeight
+                        drawLine(colors.tertiary, Offset(inset, y), Offset(size.width - inset, y),
+                            strokeWidth = 1.5.dp.toPx(), pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 8f)))
                     }
                     frame.points.zipWithNext().forEach { (first, second) ->
                         if (second.timestamp - first.timestamp <= BatteryHistory.MAX_LINE_GAP_MS) {

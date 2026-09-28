@@ -5,8 +5,10 @@ import io.ather.pro.data.api.AtherApiClient
 import io.ather.pro.data.charging.ChargeLimitStore
 import io.ather.pro.data.local.DashboardLocalStore
 import io.ather.pro.data.local.TripBaseline
+import io.ather.pro.domain.charging.ChargingEvidence
 import io.ather.pro.domain.charging.ChargeLimitController
 import io.ather.pro.domain.battery.BatteryHistory
+import io.ather.pro.domain.battery.RideHistory
 import io.ather.pro.domain.charging.ChargingControl
 import io.ather.pro.domain.charging.RemoteChargingDispatcher
 import io.ather.pro.domain.charging.RemoteChargingGateway
@@ -17,15 +19,10 @@ import io.ather.pro.domain.model.ScooterDashboardState
 import io.ather.pro.domain.model.ScooterModel
 import io.ather.pro.domain.model.ScooterSettings
 import io.ather.pro.domain.model.ScooterTelemetry
-import io.ather.pro.domain.model.TelemetrySample
 import io.ather.pro.domain.model.TripRecord
 import io.ather.pro.domain.repository.ScooterRepository
-import io.ather.pro.service.ChargeLimitMonitorService
-import io.ather.pro.service.ChargingMonitorService
-import io.ather.pro.util.ChargingNotificationManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
@@ -35,6 +32,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
+import kotlinx.coroutines.asCoroutineDispatcher
+import java.util.concurrent.Executors
 import okhttp3.WebSocket
 import java.util.UUID
 import kotlin.math.roundToInt
@@ -44,15 +44,16 @@ class AtherRepository(
     remoteChargingGateway: RemoteChargingGateway? = null
 ) : ScooterRepository {
     private val appContext = context?.applicationContext
-    private val notificationManager: ChargingNotificationManager? =
-        appContext?.let { ChargingNotificationManager.getInstance(it) }
-    private val localStore: DashboardLocalStore? = appContext?.let(::DashboardLocalStore)
+    private val localStore: DashboardLocalStore? by lazy { appContext?.let(::DashboardLocalStore) }
+    private val preferences = appContext?.getSharedPreferences("ather_dashboard_settings", Context.MODE_PRIVATE)
     private val chargeLimitStore: ChargeLimitStore? = appContext?.let(::ChargeLimitStore)
     private val api = AtherApiClient()
     private val chargingDispatcher = RemoteChargingDispatcher(
         gateway = remoteChargingGateway ?: api.asRemoteChargingGateway()
     )
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    // One application-owned worker serializes telemetry, persistence and command decisions.
+    private val scope = CoroutineScope(SupervisorJob() +
+        Executors.newSingleThreadExecutor { task -> Thread(task, "ather-repository") }.asCoroutineDispatcher())
     private var socket: WebSocket? = null
     private var reconnectJob: Job? = null
     private var commandTimeoutJob: Job? = null
@@ -60,19 +61,38 @@ class AtherRepository(
 
     // Persisted sync-to-sync trip baseline. Odometer and SoC often arrive in separate
     // WebSocket deltas, so this baseline must not be reset by either field alone.
-    private val restoredBaseline = localStore?.loadTripBaseline()
-    private var lastSavedOdo: Double? = restoredBaseline?.odometerKm
-    private var lastSavedSoc: Double? = restoredBaseline?.batterySoc
-    private var lastSavedTimestamp: Long = restoredBaseline?.timestampMs ?: System.currentTimeMillis()
+    private var lastSavedOdo: Double? = null
+    private var lastSavedSoc: Double? = null
+    private var lastSavedTimestamp: Long = System.currentTimeMillis()
     private var lastHistoryPersistAt = 0L
+    private var evidence = ChargingEvidence()
+    @Volatile private var generation = 0L
+    private var reconnectAttempt = 0
+    private var lastChargeRefreshAt = 0L
 
-    private val _dashboard = MutableStateFlow(
-        ScooterDashboardState(
-            recentTrips = localStore?.loadTrips().orEmpty(),
-            telemetryHistory = localStore?.loadTelemetryHistory().orEmpty(),
-            connection = ConnectionStatus.DISCONNECTED
-        )
-    )
+    private val _dashboard = MutableStateFlow(ScooterDashboardState(
+        settings = ScooterSettings(
+            selectedModel = runCatching { ScooterModel.valueOf(preferences?.getString("model", null).orEmpty()) }
+                .getOrDefault(ScooterModel.ATHER_450X_3_7),
+            tariffRatePerKWh = preferences?.getFloat("tariff", 8f)?.toDouble() ?: 8.0
+        ),
+        connection = ConnectionStatus.DISCONNECTED
+    ))
+    private val storageReady = scope.async {
+        runCatching {
+        val restored = localStore?.loadTripBaseline()
+        lastSavedOdo = restored?.odometerKm
+        lastSavedSoc = restored?.batterySoc
+        lastSavedTimestamp = restored?.timestampMs ?: System.currentTimeMillis()
+        val trips = localStore?.loadTrips().orEmpty()
+        val history = localStore?.loadTelemetryHistory().orEmpty()
+        val rides = localStore?.loadRideHistory().orEmpty()
+        _dashboard.update { it.copy(recentTrips = trips, telemetryHistory = history, rideHistory = rides) }
+        }.onFailure {
+            _dashboard.update { it.copy(errorMessage = "Saved history is unavailable. Live scooter data can still connect.") }
+        }
+        Unit
+    }
     override val dashboard: StateFlow<ScooterDashboardState> = _dashboard.asStateFlow()
 
     private val _chargeLimit = MutableStateFlow(ChargeLimitController.Snapshot())
@@ -87,7 +107,8 @@ class AtherRepository(
     @Volatile
     private var authInvalidated = false
 
-    var onAuthenticationRequired: (() -> Unit)? = null
+    private val _authenticationRequired = MutableStateFlow<String?>(null)
+    val authenticationRequired: StateFlow<String?> = _authenticationRequired.asStateFlow()
 
     init {
         INSTANCE = this
@@ -95,8 +116,16 @@ class AtherRepository(
             while (isActive) {
                 delay(1_000L)
                 tickRemoteChargingTimeouts()
-                _dashboard.value.telemetry?.let { telemetry ->
-                    processChargeLimit(telemetry, System.currentTimeMillis())
+                if (hasCredentials()) {
+                    val now = System.currentTimeMillis()
+                    processChargeLimit(_dashboard.value.telemetry, now)
+                    if (_chargeLimit.value.enabled && !manuallyDisconnected && now - lastChargeRefreshAt >= 20_000L) {
+                        lastChargeRefreshAt = now
+                        socket?.let(api::subscribe)
+                        // A silent or wedged stream must obtain a new subscription snapshot.
+                        val latestCharge = evidence.chargingAt ?: 0L
+                        if (_dashboard.value.connection == ConnectionStatus.CONNECTED && now - latestCharge > 120_000L) connect()
+                    }
                 }
             }
         }
@@ -109,10 +138,13 @@ class AtherRepository(
         authToken = token
         vehicleUuid = uuid
         authInvalidated = false
+        _authenticationRequired.value = null
         if (changed) {
+            generation += 1
+            evidence = ChargingEvidence()
             loadChargeLimitForVehicle(uuid)
         }
-        if (changed || socket == null || _dashboard.value.connection != ConnectionStatus.CONNECTED) {
+        if (changed || socket == null) {
             loadVehicleProfileAndRides()
             connect()
         }
@@ -120,19 +152,21 @@ class AtherRepository(
 
     @Synchronized
     fun clearCredentials() {
+        generation += 1
+        evidence = ChargingEvidence()
         authToken = null
         vehicleUuid = null
         manuallyDisconnected = true
         reconnectJob?.cancel()
         socket?.close(1000, "Signed out")
         socket = null
-        appContext?.let { ChargeLimitMonitorService.stop(it) }
         _chargeLimit.value = ChargeLimitController.Snapshot()
         _dashboard.update {
             it.copy(
                 connection = ConnectionStatus.DISCONNECTED,
                 errorMessage = null,
                 telemetry = null,
+                lastUpdated = null, gpsUpdatedAt = null, batteryUpdatedAt = null, chargingUpdatedAt = null,
                 vehicleProfile = null,
                 remoteChargingCommand = RemoteChargingCommand()
             )
@@ -159,6 +193,7 @@ class AtherRepository(
     private fun handleAuthFailure(message: String) {
         if (authInvalidated) return
         authInvalidated = true
+        generation += 1
         manuallyDisconnected = true
         reconnectJob?.cancel()
         socket?.close(1000, "Authentication expired")
@@ -171,28 +206,27 @@ class AtherRepository(
                 errorMessage = message.ifBlank { "Session expired. Please sign in again." }
             )
         }
-        onAuthenticationRequired?.invoke()
+        _authenticationRequired.value = message.ifBlank { "Your Ather session has expired." }
     }
 
     private fun isAuthFailureMessage(message: String): Boolean {
         val lower = message.lowercase()
         return lower.contains("session expired") ||
             lower.contains("unauthorized") ||
-            lower.contains("401") ||
-            lower.contains("403") ||
-            lower.contains("not authorized") ||
-            lower.contains("authentication")
+            Regex("\\b401\\b").containsMatchIn(lower) ||
+            lower.contains("not authorized")
     }
 
     private fun loadVehicleProfileAndRides() {
         val (token, uuid) = requireCredentials() ?: return
         api.fetchVehicleProfile(token, uuid) { result ->
+            if (authToken != token || vehicleUuid != uuid) return@fetchVehicleProfile
             result.onSuccess { profile ->
                 _dashboard.update { state ->
                     val apiModel = profile.resolvedModel
                     state.copy(
                         vehicleProfile = profile,
-                        settings = if (apiModel != null) {
+                        settings = if (apiModel != null && preferences?.contains("model") != true) {
                             state.settings.copy(selectedModel = apiModel)
                         } else state.settings
                     )
@@ -220,19 +254,17 @@ class AtherRepository(
             usableCapacityWh = settings.selectedModel.usableCapacityWh,
             tariffRatePerKWh = settings.tariffRatePerKWh
         ) { result ->
-            result.onSuccess { officialRides ->
-                _dashboard.update { state ->
-                    val localRides = state.recentTrips.filterNot { it.isOfficialRide }
-                    val merged = (officialRides + localRides)
-                        .distinctBy(TripRecord::id)
-                        .sortedByDescending(TripRecord::startTimeMs)
-                        .take(100)
-                    localStore?.saveTrips(merged)
-                    state.copy(recentTrips = merged)
-                }
-            }.onFailure { error ->
-                if (isAuthFailureMessage(error.message.orEmpty())) {
-                    handleAuthFailure(error.message.orEmpty())
+            scope.launch {
+                storageReady.await()
+                if (authToken != token) return@launch
+                result.onSuccess { officialRides ->
+                    val localRides = _dashboard.value.recentTrips.filterNot { it.isOfficialRide }
+                    val merged = (officialRides + localRides).distinctBy(TripRecord::id)
+                        .sortedByDescending(TripRecord::startTimeMs).take(100)
+                    _dashboard.update { it.copy(recentTrips = merged) }
+                    persist { saveTrips(merged) }
+                }.onFailure { error ->
+                    if (isAuthFailureMessage(error.message.orEmpty())) handleAuthFailure(error.message.orEmpty())
                 }
             }
         }
@@ -243,20 +275,28 @@ class AtherRepository(
         val (token, uuid) = requireCredentials() ?: return
         manuallyDisconnected = false
         reconnectJob?.cancel()
-        socket?.close(1000, "Replacing connection")
+        val connectionGeneration = ++generation
+        socket?.cancel()
         _dashboard.update { it.copy(connection = ConnectionStatus.CONNECTING, errorMessage = null) }
         socket = api.connect(token, uuid, object : AtherApiClient.Listener {
             override fun onConnected(socket: WebSocket) {
+                if (generation != connectionGeneration || manuallyDisconnected) { socket.cancel(); return }
+                reconnectAttempt = 0
                 this@AtherRepository.socket = socket
                 _dashboard.update { it.copy(connection = ConnectionStatus.CONNECTED, errorMessage = null) }
                 api.subscribe(socket)
             }
 
             override fun onTelemetry(telemetry: ScooterTelemetry) {
-                handleIncomingTelemetry(telemetry)
+                scope.launch {
+                    storageReady.await()
+                    if (generation == connectionGeneration && !manuallyDisconnected) handleIncomingTelemetry(telemetry)
+                }
             }
 
             override fun onDisconnected(reason: String) {
+                if (generation != connectionGeneration) return
+                socket = null
                 if (!manuallyDisconnected) {
                     if (isAuthFailureMessage(reason)) {
                         handleAuthFailure(reason)
@@ -268,6 +308,7 @@ class AtherRepository(
             }
 
             override fun onError(message: String) {
+                if (generation != connectionGeneration || manuallyDisconnected) return
                 if (isAuthFailureMessage(message)) {
                     handleAuthFailure(message)
                 } else {
@@ -278,6 +319,8 @@ class AtherRepository(
     }
 
     private fun handleIncomingTelemetry(rawTelemetry: ScooterTelemetry) {
+        val observedAt = System.currentTimeMillis()
+        evidence = evidence.observe(rawTelemetry, observedAt)
         val existingTelemetry = _dashboard.value.telemetry
         val mergedTelemetry = existingTelemetry?.mergeWith(rawTelemetry) ?: rawTelemetry
 
@@ -379,7 +422,7 @@ class AtherRepository(
                 )
 
                 updatedTrips = (listOf(newTrip) + updatedTrips).take(100)
-                localStore?.saveTrips(updatedTrips)
+                persist { saveTrips(updatedTrips) }
                 updateTripBaseline(currentOdo, currentBatterySoc, now)
             }
         } else {
@@ -397,84 +440,77 @@ class AtherRepository(
             observedAt = now
         )
 
+        val rideHistory = RideHistory.record(_dashboard.value.rideHistory, rawTelemetry, now)
         if (now - lastHistoryPersistAt >= HISTORY_PERSIST_INTERVAL_MS) {
-            localStore?.saveTelemetryHistory(updatedHistory)
+            persist { saveRideHistory(rideHistory) }
+            persist { saveTelemetryHistory(updatedHistory) }
             lastHistoryPersistAt = now
         }
 
         _dashboard.update {
-            val command = ChargingControl.advanceCommand(
+            val command = if (ChargingEvidence.hasChargeReading(rawTelemetry)) ChargingControl.advanceCommand(
                 command = it.remoteChargingCommand,
                 telemetry = fullTelemetry,
                 nowMs = now
-            )
+            ) else it.remoteChargingCommand
             it.copy(
                 telemetry = fullTelemetry,
                 lastUpdated = now,
+                batteryUpdatedAt = evidence.batteryAt,
+                chargingUpdatedAt = evidence.chargingAt,
+                gpsUpdatedAt = if (rawTelemetry.gps?.latitude != null && rawTelemetry.gps.longitude != null) now else it.gpsUpdatedAt,
                 recentTrips = updatedTrips,
                 packetCount = currentCount,
                 recentPacketTimestamps = updatedTimestamps,
                 telemetryHistory = updatedHistory,
+                rideHistory = rideHistory,
                 remoteChargingCommand = command
             )
         }
-        notificationManager?.update(fullTelemetry)
-
-        if (ChargingControl.isActivelyCharging(fullTelemetry)) {
-            appContext?.let { ChargingMonitorService.start(it) }
-        } else {
-            appContext?.let { ChargingMonitorService.stop(it) }
-        }
-
         processChargeLimit(fullTelemetry, now)
     }
 
     private fun loadChargeLimitForVehicle(uuid: String) {
-        val loaded = chargeLimitStore?.load(uuid) ?: ChargeLimitController.Snapshot()
-        _chargeLimit.value = loaded
-        syncChargeLimitService(loaded.enabled)
+        _chargeLimit.value = chargeLimitStore?.load(uuid) ?: ChargeLimitController.Snapshot()
+    }
+
+    private fun updateChargeLimit(next: ChargeLimitController.Snapshot): Boolean {
+        val uuid = vehicleUuid ?: return false
+        val saved = chargeLimitStore?.save(uuid, next) ?: true
+        _chargeLimit.value = if (saved) next else next.copy(status = ChargeLimitController.Status.ERROR,
+            armed = false, message = "Could not save the charge limit. Free phone storage and retry.")
+        return saved
     }
 
     override fun setChargeLimit(enabled: Boolean, percent: Int) {
-        val uuid = vehicleUuid
-        val next = ChargeLimitController.applySettings(_chargeLimit.value, enabled, percent)
-        _chargeLimit.value = next
-        if (!uuid.isNullOrBlank()) {
-            chargeLimitStore?.save(uuid, next.enabled, next.percent)
+        scope.launch {
+            updateChargeLimit(ChargeLimitController.applySettings(_chargeLimit.value, enabled, percent))
+            processChargeLimit(_dashboard.value.telemetry, System.currentTimeMillis())
         }
-        syncChargeLimitService(next.enabled)
-        // Evaluate immediately against current telemetry after a deliberate change.
-        _dashboard.value.telemetry?.let { processChargeLimit(it, System.currentTimeMillis()) }
     }
 
     override fun retryChargeLimit() {
-        _chargeLimit.value = ChargeLimitController.retry(_chargeLimit.value)
-        _dashboard.value.telemetry?.let { processChargeLimit(it, System.currentTimeMillis()) }
-    }
-
-    private fun syncChargeLimitService(enabled: Boolean) {
-        val ctx = appContext ?: return
-        if (enabled) {
-            ChargeLimitMonitorService.start(ctx)
-        } else {
-            ChargeLimitMonitorService.stop(ctx)
+        scope.launch {
+            updateChargeLimit(ChargeLimitController.retry(_chargeLimit.value))
+            processChargeLimit(_dashboard.value.telemetry, System.currentTimeMillis())
         }
     }
 
-    private fun processChargeLimit(telemetry: ScooterTelemetry, nowMs: Long) {
+    private fun processChargeLimit(telemetry: ScooterTelemetry?, nowMs: Long) {
         val decision = ChargeLimitController.onTelemetry(
             state = _chargeLimit.value,
             telemetry = telemetry,
-            lastUpdatedMs = _dashboard.value.lastUpdated ?: nowMs,
-            nowMs = nowMs
+            lastUpdatedMs = evidence.completeAt,
+            nowMs = nowMs,
+            chargingUpdatedMs = evidence.chargingAt
         )
         when (decision) {
             ChargeLimitController.Decision.None -> Unit
             is ChargeLimitController.Decision.StateOnly -> {
-                _chargeLimit.value = decision.next
+                updateChargeLimit(decision.next)
             }
             is ChargeLimitController.Decision.RequestStop -> {
-                _chargeLimit.value = decision.next
+                if (!updateChargeLimit(decision.next)) return
                 val command = _dashboard.value.remoteChargingCommand
                 val stopAlreadyPending =
                     (command.phase == RemoteCommandPhase.SENDING ||
@@ -487,25 +523,26 @@ class AtherRepository(
                 }
                 val dispatched = sendRemoteCharging(start = false) { result ->
                     result.exceptionOrNull()?.let { error ->
-                        _chargeLimit.update { current ->
-                            if (current.status != ChargeLimitController.Status.PENDING) current
+                        val current = _chargeLimit.value
+                        updateChargeLimit(
+                            if (current.status != ChargeLimitController.Status.PENDING || current.pendingSinceMs != decision.next.pendingSinceMs) current
                             else current.copy(
                                 status = ChargeLimitController.Status.ERROR,
                                 message = error.message
                                     ?: "Ather rejected the automatic stop. Tap Retry limit.",
                                 pendingSinceMs = null
                             )
-                        }
+                        )
                     }
                 }
                 if (!dispatched) {
                     val reason = _dashboard.value.remoteChargingCommand.message
                         ?: "Automatic stop could not be dispatched. Tap Retry limit."
-                    _chargeLimit.value = decision.next.copy(
+                    updateChargeLimit(decision.next.copy(
                         status = ChargeLimitController.Status.ERROR,
                         message = reason,
                         pendingSinceMs = null
-                    )
+                    ))
                 }
             }
         }
@@ -514,7 +551,9 @@ class AtherRepository(
     private fun scheduleReconnect() {
         if (reconnectJob?.isActive == true || manuallyDisconnected) return
         reconnectJob = scope.launch {
-            delay(5_000)
+            val delayMs = (1_000L shl reconnectAttempt.coerceAtMost(6)).coerceAtMost(60_000L)
+            reconnectAttempt += 1
+            delay(delayMs)
             if (isActive && !manuallyDisconnected) connect()
         }
     }
@@ -524,10 +563,12 @@ class AtherRepository(
             val updatedSettings = state.settings.copy(selectedModel = model)
             state.copy(settings = updatedSettings)
         }
-        _dashboard.value.telemetry?.let { handleIncomingTelemetry(it) }
+        preferences?.edit()?.putString("model", model.name)?.apply()
     }
 
     override fun updateTariff(tariffRate: Double) {
+        if (!tariffRate.isFinite() || tariffRate !in 0.0..100.0) return
+        preferences?.edit()?.putFloat("tariff", tariffRate.toFloat())?.apply()
         _dashboard.update { state ->
             val updatedSettings = state.settings.copy(tariffRatePerKWh = tariffRate)
             state.copy(settings = updatedSettings)
@@ -536,10 +577,11 @@ class AtherRepository(
 
     override fun clearTrips() {
         _dashboard.update { it.copy(recentTrips = emptyList()) }
-        localStore?.saveTrips(emptyList())
+        scope.launch { storageReady.await(); persist { saveTrips(emptyList()) } }
     }
 
     override fun refresh() {
+        if (_dashboard.value.connection == ConnectionStatus.CONNECTING && socket != null) return
         loadVehicleProfileAndRides()
         val currentSocket = socket
         if (currentSocket != null && _dashboard.value.connection == ConnectionStatus.CONNECTED) {
@@ -549,18 +591,19 @@ class AtherRepository(
         }
     }
 
+    @Synchronized
     override fun disconnect() {
-        if (ChargingMonitorService.isRunning || ChargeLimitMonitorService.isRunning) {
-            // Keep WebSocket alive while a foreground monitor needs live telemetry.
-            return
-        }
+        generation += 1
         manuallyDisconnected = true
         reconnectJob?.cancel()
         socket?.close(1000, "App closed")
         socket = null
-        localStore?.saveTelemetryHistory(_dashboard.value.telemetryHistory)
+        scope.launch {
+            storageReady.await()
+            persist { saveTelemetryHistory(_dashboard.value.telemetryHistory) }
+            persist { saveRideHistory(_dashboard.value.rideHistory) }
+        }
         _dashboard.update { it.copy(connection = ConnectionStatus.DISCONNECTED, errorMessage = null) }
-        notificationManager?.cancelAll()
     }
 
     @Synchronized
@@ -595,7 +638,7 @@ class AtherRepository(
         ) {
             return
         }
-        val view = ChargingControl.resolveView(telem, current)
+        val view = ChargingControl.resolveView(null, current)
         if (view.command != current) {
             _dashboard.update { it.copy(remoteChargingCommand = view.command) }
         }
@@ -622,6 +665,7 @@ class AtherRepository(
         ) { result ->
             scope.launch {
                 stateCommitted.await()
+                if (authToken != token || vehicleUuid != uuid) return@launch
                 val action = if (start) "start" else "stop"
                 if (result.isFailure && isAuthFailureMessage(result.exceptionOrNull()?.message.orEmpty())) {
                     handleAuthFailure(result.exceptionOrNull()?.message.orEmpty())
@@ -650,12 +694,7 @@ class AtherRepository(
         private var INSTANCE: AtherRepository? = null
 
         fun getInstance(context: Context? = null): AtherRepository {
-            INSTANCE?.let { existing ->
-                if (existing.hasCredentials()) {
-                    existing.ensureConnected()
-                }
-                return existing
-            }
+            INSTANCE?.let { return it }
             return synchronized(this) {
                 INSTANCE ?: AtherRepository(context?.applicationContext).also { INSTANCE = it }
             }
@@ -664,10 +703,16 @@ class AtherRepository(
         private const val HISTORY_PERSIST_INTERVAL_MS = 15_000L
     }
 
+    private fun persist(action: DashboardLocalStore.() -> Unit) {
+        runCatching { localStore?.action() }.onFailure {
+            _dashboard.update { it.copy(errorMessage = "Could not save history. Check available phone storage.") }
+        }
+    }
+
     private fun updateTripBaseline(odometerKm: Double, batterySoc: Double, timestampMs: Long) {
         lastSavedOdo = odometerKm
         lastSavedSoc = batterySoc
         lastSavedTimestamp = timestampMs
-        localStore?.saveTripBaseline(TripBaseline(odometerKm, batterySoc, timestampMs))
+        persist { saveTripBaseline(TripBaseline(odometerKm, batterySoc, timestampMs)) }
     }
 }

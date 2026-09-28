@@ -55,6 +55,13 @@
         android:textSize="15sp"
         android:textStyle="bold" />
 
+    <LinearLayout android:id="@+id/widget_details" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/widget_modes_label" android:textColor="#98A0A5" android:textSize="11sp" android:layout_marginTop="8dp" />
+        <TextView android:id="@+id/widget_modes" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#F3F0EA" android:textSize="12sp" android:maxLines="3" />
+        <ImageView android:id="@+id/widget_graph" android:layout_width="match_parent" android:layout_height="64dp" android:layout_marginTop="6dp" android:contentDescription="@string/widget_graph_description" android:scaleType="fitXY" />
+        <TextView android:id="@+id/widget_charge" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#98A0A5" android:textSize="11sp" />
+    </LinearLayout>
+
     <TextView
         android:id="@+id/widget_sync"
         android:layout_width="match_parent"

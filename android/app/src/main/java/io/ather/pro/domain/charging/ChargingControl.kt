@@ -95,6 +95,7 @@ object ChargingControl {
         val startEcho = remoteAction.equals("start", ignoreCase = true)
 
         val charging = when {
+            delta.chargerConnected == false -> false
             delta.charging != null -> delta.charging
             delta.chargingStatus != null -> {
                 when {
@@ -112,7 +113,10 @@ object ChargingControl {
         }
 
         val resolvedStatus = when {
+            delta.chargerConnected == false && delta.chargingStatus == null -> "Disconnected"
             delta.chargingStatus != null -> delta.chargingStatus
+            delta.charging == true -> "Charging"
+            delta.charging == false -> if (connected == true) "Paused" else "Idle"
             stopEcho && delta.remoteChargingAction != null &&
                 existing.chargingStatus.equals("Charging", ignoreCase = true) &&
                 charging != true -> "Paused"
@@ -189,7 +193,8 @@ object ChargingControl {
         telemetry: ScooterTelemetry?,
         command: RemoteChargingCommand,
         nowMs: Long = System.currentTimeMillis(),
-        timeoutMs: Long = CONFIRM_TIMEOUT_MS
+        timeoutMs: Long = CONFIRM_TIMEOUT_MS,
+        confirmFromTelemetry: Boolean = true
     ): View {
         var working = command
         // Fresh charging current after a confirmed stop ⇒ new session; drop stale latch
@@ -201,7 +206,7 @@ object ChargingControl {
         ) {
             working = idleCommand()
         }
-        val advanced = advanceCommand(working, telemetry, nowMs, timeoutMs)
+        val advanced = advanceCommand(working, if (confirmFromTelemetry) telemetry else null, nowMs, timeoutMs)
         val plugged = isPluggedIn(telemetry)
         val active = isActivelyCharging(telemetry)
         val paused = isPaused(telemetry)

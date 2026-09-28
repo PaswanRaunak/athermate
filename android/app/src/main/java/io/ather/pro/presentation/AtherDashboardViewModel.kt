@@ -47,11 +47,6 @@ class AtherDashboardViewModel(
         repository.retryChargeLimit()
     }
 
-    override fun onCleared() {
-        repository.disconnect()
-        super.onCleared()
-    }
-
     class Factory(
         private val repository: ScooterRepository
     ) : ViewModelProvider.Factory {

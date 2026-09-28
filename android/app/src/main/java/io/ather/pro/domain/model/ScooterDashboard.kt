@@ -179,6 +179,7 @@ data class ScooterTelemetry(
     val gps: GpsData? = null,
     val modeRanges: Map<String, ModeRange> = emptyMap(),
     val batteryHealth: BatteryHealthStats? = null,
+    val reportedSohPercent: Double? = null,
     val tpms: TpmsData? = null,
     val chargerType: String? = null,
     val softwareVersion: String? = null,
@@ -238,6 +239,7 @@ data class ScooterTelemetry(
             gps = mergedGps,
             modeRanges = mergedModeRanges,
             batteryHealth = delta.batteryHealth ?: this.batteryHealth,
+            reportedSohPercent = delta.reportedSohPercent ?: this.reportedSohPercent,
             tpms = mergedTpms,
             chargerType = chargingAware.chargerType,
             softwareVersion = delta.softwareVersion ?: this.softwareVersion,
@@ -307,11 +309,15 @@ data class ScooterDashboardState(
     val connection: ConnectionStatus = ConnectionStatus.CONNECTING,
     val errorMessage: String? = null,
     val lastUpdated: Long? = null,
+    val gpsUpdatedAt: Long? = null,
+    val batteryUpdatedAt: Long? = null,
+    val chargingUpdatedAt: Long? = null,
     val settings: ScooterSettings = ScooterSettings(),
     val recentTrips: List<TripRecord> = emptyList(),
     val packetCount: Long = 0,
     val recentPacketTimestamps: List<Long> = emptyList(),
     val telemetryHistory: List<TelemetrySample> = emptyList(),
+    val rideHistory: List<io.ather.pro.domain.battery.RideSample> = emptyList(),
     val vehicleProfile: VehicleProfile? = null,
     val remoteChargingCommand: RemoteChargingCommand = RemoteChargingCommand()
 ) {
@@ -332,7 +338,7 @@ data class ScooterDashboardState(
 
     /** BMS SoH only when the API actually returned batteryHealth. */
     val reportedSohPercentage: Double?
-        get() = telemetry?.batteryHealth?.sohPercentage?.takeIf { it.isFinite() && it > 0.0 }
+        get() = (telemetry?.reportedSohPercent ?: telemetry?.batteryHealth?.sohPercentage)?.takeIf { it.isFinite() && it in 0.0..100.0 }
 
     fun liveRideObservation(windowMs: Long = DEFAULT_LIVE_WINDOW_MS): LiveRideObservation {
         val now = lastUpdated ?: System.currentTimeMillis()

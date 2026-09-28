@@ -42,6 +42,22 @@ interface DashboardDao {
         }
     }
 
+    @Query("SELECT * FROM ride_history ORDER BY timestamp ASC")
+    fun loadRideHistory(): List<RideSampleEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun upsertRideHistory(samples: List<RideSampleEntity>)
+
+    @Query("DELETE FROM ride_history WHERE timestamp < :oldest")
+    fun pruneRideHistory(oldest: Long)
+
+    @Transaction
+    fun saveRideHistory(samples: List<RideSampleEntity>) {
+        if (samples.isEmpty()) return
+        upsertRideHistory(samples)
+        pruneRideHistory(samples.first().timestamp)
+    }
+
     @Query("SELECT * FROM trip_baseline WHERE id = :id LIMIT 1")
     fun loadTripBaseline(id: Int = TripBaselineEntity.SINGLETON_ID): TripBaselineEntity?
 

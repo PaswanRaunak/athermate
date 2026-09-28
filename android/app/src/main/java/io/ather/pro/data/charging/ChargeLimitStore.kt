@@ -19,30 +19,35 @@ class ChargeLimitStore(context: Context) {
         val percent = ChargeLimitController.clampPercent(
             prefs.getInt(keyPercent(vehicleUuid), ChargeLimitController.DEFAULT_PERCENT)
         )
-        return if (enabled) {
-            ChargeLimitController.Snapshot(
-                enabled = true,
-                percent = percent,
-                status = ChargeLimitController.Status.MONITORING,
-                message = "Phone-app automation — not a firmware charge limit.",
-                armed = true
-            )
-        } else {
-            ChargeLimitController.Snapshot(
-                enabled = false,
-                percent = percent,
-                status = ChargeLimitController.Status.DISABLED,
-                armed = false
-            )
-        }
+        if (!enabled) return ChargeLimitController.Snapshot(percent = percent)
+        val status = runCatching {
+            ChargeLimitController.Status.valueOf(prefs.getString("${vehicleUuid}_status", "MONITORING")!!)
+        }.getOrDefault(ChargeLimitController.Status.MONITORING)
+        return ChargeLimitController.Snapshot(
+            enabled = true,
+            percent = percent,
+            status = status,
+            armed = prefs.getBoolean("${vehicleUuid}_armed", true),
+            pendingSinceMs = prefs.getLong("${vehicleUuid}_pending_since", -1L).takeIf { it > 0 },
+            attempts = prefs.getInt("${vehicleUuid}_attempts", 0),
+            lastAttemptMs = prefs.getLong("${vehicleUuid}_last_attempt", -1L).takeIf { it > 0 },
+            message = prefs.getString("${vehicleUuid}_message", null)
+        )
     }
 
-    fun save(vehicleUuid: String, enabled: Boolean, percent: Int) {
-        if (vehicleUuid.isBlank()) return
-        prefs.edit()
-            .putBoolean(keyEnabled(vehicleUuid), enabled)
-            .putInt(keyPercent(vehicleUuid), ChargeLimitController.clampPercent(percent))
-            .apply()
+    /** Persist the command latch before dispatch so process recreation cannot send a duplicate. */
+    fun save(vehicleUuid: String, snapshot: ChargeLimitController.Snapshot): Boolean {
+        if (vehicleUuid.isBlank()) return false
+        return prefs.edit()
+            .putBoolean(keyEnabled(vehicleUuid), snapshot.enabled)
+            .putInt(keyPercent(vehicleUuid), ChargeLimitController.clampPercent(snapshot.percent))
+            .putString("${vehicleUuid}_status", snapshot.status.name)
+            .putBoolean("${vehicleUuid}_armed", snapshot.armed)
+            .putLong("${vehicleUuid}_pending_since", snapshot.pendingSinceMs ?: -1L)
+            .putString("${vehicleUuid}_message", snapshot.message)
+            .putInt("${vehicleUuid}_attempts", snapshot.attempts)
+            .putLong("${vehicleUuid}_last_attempt", snapshot.lastAttemptMs ?: -1L)
+            .commit()
     }
 
     companion object {

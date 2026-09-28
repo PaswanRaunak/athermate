@@ -53,8 +53,8 @@ fun ChargingActions(
     command: RemoteChargingCommand,
     onPauseCharging: () -> Unit,
     onResumeCharging: () -> Unit,
-    onRetryLatch: () -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onRetryLatch: () -> Unit = {}
 ) {
     // Recompose while a latch is pending so confirm timeouts unlock buttons
     // even if WebSocket telemetry is quiet.
@@ -70,7 +70,7 @@ fun ChargingActions(
             clockMs = System.currentTimeMillis()
         }
     }
-    val view = ChargingControl.resolveView(telemetry, command, nowMs = clockMs)
+    val view = ChargingControl.resolveView(telemetry, command, nowMs = clockMs, confirmFromTelemetry = false)
     ChargingActions(
         view = view,
         onPauseCharging = onPauseCharging,
@@ -170,8 +170,8 @@ private fun ChargingActions(
 
             // Every deliberate tap is actionable. The dispatcher replaces a stalled
             // pending request, while requestedAt matching ignores its late callback.
-            val stopEnabled = true
-            val startEnabled = true
+            val stopEnabled = !view.commandPending
+            val startEnabled = !view.commandPending
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -256,7 +256,7 @@ private fun ChargingActions(
                         style = MaterialTheme.typography.labelSmall
                     )
                     TextButton(onClick = onRetryLatch) {
-                        Text("Clear latch & retry", color = colorScheme.secondary)
+                        Text("Allow another attempt", color = colorScheme.secondary)
                     }
                 }
                 RemoteCommandPhase.ERROR -> {
@@ -267,7 +267,7 @@ private fun ChargingActions(
                         style = MaterialTheme.typography.labelSmall
                     )
                     TextButton(onClick = onRetryLatch) {
-                        Text("Clear error & retry", color = colorScheme.secondary)
+                        Text("Dismiss error", color = colorScheme.secondary)
                     }
                 }
                 RemoteCommandPhase.CONFIRMED -> {

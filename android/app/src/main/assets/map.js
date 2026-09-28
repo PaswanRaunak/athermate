@@ -22,7 +22,8 @@
     const arrow = document.getElementById('phone-marker-icon');
     if (arrow) arrow.style.transform = `rotate(${normalize(phoneHeading + bearing)}deg)`;
     document.getElementById('camera-status').textContent = browsing ? 'Browsing · tap Follow' :
-      (headingMode === 'north' ? 'North up' : 'Heading up');
+      (followTarget === 'scooter' ? 'Following scooter' : (headingMode === 'north' ? 'North up' : 'Heading up'));
+    document.getElementById('empty-status').hidden = !!(phone || scooter);
   }
 
   function updateHeading() {
@@ -127,6 +128,7 @@
     if (!marker || browsing || interacting) return;
     map.setView(marker.getLatLng(), firstCenter ? 16 : map.getZoom(), { animate: false });
     firstCenter = false;
+    if (pointers.size === 0) interacting = false;
   }
 
   window.updateAtherMarker = function (lat, lng, accuracy) {
@@ -142,7 +144,8 @@
     } else scooter.setLatLng(position);
     scooterAccuracy = accuracyCircle(scooterAccuracy, position, accuracy, '#00E676');
     updateGuidance();
-    if (!phone && followTarget) followPosition(scooter);
+    if (followTarget === 'scooter' || (!phone && followTarget)) followPosition(scooter);
+    updateOrientation();
   };
 
   window.updatePhoneMarker = function (lat, lng, accuracy, bearing) {
@@ -167,11 +170,13 @@
     pendingScooter = null;
     [scooter, scooterAccuracy, guidance].forEach(layer => { if (map && layer) map.removeLayer(layer); });
     scooter = scooterAccuracy = guidance = null;
+    updateOrientation();
   };
   window.removePhoneMarker = function () {
     pendingPhone = null;
     [phone, phoneAccuracy, guidance].forEach(layer => { if (map && layer) map.removeLayer(layer); });
     phone = phoneAccuracy = guidance = null;
+    updateOrientation();
   };
 
   window.followMe = function () {
@@ -181,6 +186,17 @@
     followTarget = 'phone';
     map.stop();
     followPosition(phone || scooter);
+    updateOrientation();
+    updateHeading();
+  };
+
+  window.followScooter = function () {
+    if (!map || !scooter) return;
+    browsing = false;
+    interacting = false;
+    followTarget = 'scooter';
+    map.stop();
+    followPosition(scooter);
     updateOrientation();
     updateHeading();
   };
