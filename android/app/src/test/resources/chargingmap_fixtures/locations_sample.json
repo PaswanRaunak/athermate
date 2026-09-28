@@ -1,0 +1,60 @@
+[
+  {
+    "name": "Indiranagar Grid Hub",
+    "infra_type": "ATHER_GRID",
+    "address_1": "100 Feet Rd, Indiranagar",
+    "latitude": 12.9784,
+    "longitude": 77.6408,
+    "is_open_now": true,
+    "closing_in": "3h 20m",
+    "next_opening": null,
+    "location_tags": ["covered", "cafe"],
+    "dbs_available": 2,
+    "dbs_in_use": 1,
+    "dbs_under_maintenance": 0,
+    "dbs_out_of_operating_hours": 0,
+    "dbs_total": 3,
+    "tariff_details": {
+      "line_items": [
+        { "display_text": "Energy", "text": "₹8.5 / kWh" },
+        { "display_text": "Idle", "text": "₹1 / min after 15m" }
+      ]
+    },
+    "connector_type": [
+      { "display_text": "Ather Grid 3.3 kW", "standard": "ATHER_GRID" },
+      { "display_text": "Ather Grid 6 kW", "standard": "ATHER_GRID_6KW" }
+    ],
+    "party_id": "IN*ATH",
+    "has_6kW_grid": true,
+    "timings": { "mon": "06:00-23:00" }
+  },
+  {
+    "name": "Koramangala Public",
+    "infra_type": "PUBLIC",
+    "address_1": "80 Feet Rd",
+    "latitude": 12.9352,
+    "longitude": 77.6245,
+    "is_open_now": false,
+    "closing_in": null,
+    "next_opening": "Tomorrow 07:00",
+    "location_tags": [],
+    "dbs_available": 0,
+    "dbs_in_use": 2,
+    "dbs_under_maintenance": 1,
+    "dbs_out_of_operating_hours": 0,
+    "dbs_total": 3,
+    "connector_type": [
+      { "display_text": "Type 2 AC", "standard": "IEC_62196_T2" }
+    ],
+    "party_id": "IN*ATH",
+    "has_6kW_grid": false
+  },
+  {
+    "name": "Missing coords (dropped)",
+    "infra_type": "PUBLIC",
+    "address_1": "Nowhere",
+    "latitude": null,
+    "longitude": null,
+    "dbs_available": 1
+  }
+]

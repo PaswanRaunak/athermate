@@ -1,0 +1,48 @@
+{
+  "state": {
+    "reported": {
+      "telemetry.bike": {
+        "battery_soc": 72.5,
+        "range": 98.0,
+        "odo": 28001.2,
+        "vehicle_state": "charging",
+        "mode": "SmartEco",
+        "software_version": "6.3.0",
+        "csq": 22,
+        "mode_range": {
+          "smart_eco": 145.0,
+          "Ride": 110.0
+        },
+        "gps_location": {
+          "latitude": 13.0827,
+          "longitude": 80.2707,
+          "altitude": 10.0,
+          "accuracy": 4.2,
+          "bearing": 180.0,
+          "gps_speed": 0.0
+        }
+      },
+      "telemetry.charging": {
+        "chargingStatus": "Charging",
+        "chargingHeartBeat": "On",
+        "chargerConnected": true,
+        "time2FullCharge": 95,
+        "time2EightyCharge": 40,
+        "charger_type": "public"
+      },
+      "telemetry.tpms": {
+        "front_psi": 31.5,
+        "rear_psi": 35.0
+      },
+      "app.ather_stack_features": {
+        "anti_theft": "on",
+        "skid_control": true
+      },
+      "scooters.remote_charging": {
+        "action": "start",
+        "state": 1,
+        "error": "0"
+      }
+    }
+  }
+}

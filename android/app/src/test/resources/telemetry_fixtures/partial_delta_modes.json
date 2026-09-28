@@ -1,0 +1,13 @@
+{
+  "state": {
+    "reported": {
+      "telemetry.bike.mode_range": {
+        "Ride": 88.0
+      },
+      "telemetry.bike.predicted_mode_range": {
+        "ride": 91.5
+      },
+      "telemetry.bike.range": 88.0
+    }
+  }
+}

@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Ather Pro Live Tactical Map</title>
+  <!-- Bundled Leaflet + rotate — CDN misses left heading-up broken / inverted. -->
+  <link rel="stylesheet" href="leaflet/leaflet.css" />
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      background-color: #0B0D0F;
+      color: #F3F0EA;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    #map-viewport {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      overflow: hidden;
+      border-radius: 50%;
+      touch-action: none;
+      overscroll-behavior: contain;
+    }
+    #map {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      background-color: #0B0D0F;
+    }
+    .leaflet-container {
+      background-color: #0B0D0F !important;
+    }
+    /* Dark zoom control */
+    .leaflet-control-zoom {
+      border: 1px solid #2C3338 !important;
+      border-radius: 10px !important;
+      overflow: hidden;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.7) !important;
+      margin-top: 10px !important;
+      margin-left: 10px !important;
+    }
+    .leaflet-control-zoom a {
+      background-color: #15191D !important;
+      color: #F3F0EA !important;
+      border-bottom: 1px solid #2C3338 !important;
+      width: 36px !important;
+      height: 36px !important;
+      line-height: 36px !important;
+      font-size: 18px !important;
+      font-weight: bold !important;
+      text-align: center;
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+    .leaflet-control-zoom a:hover, .leaflet-control-zoom a:active {
+      background-color: #242B30 !important;
+      color: #00E676 !important;
+    }
+    .leaflet-control-zoom a:last-child {
+      border-bottom: none !important;
+    }
+    /* Dark attribution */
+    .leaflet-control-attribution {
+      background: rgba(11, 13, 15, 0.85) !important;
+      color: #98A0A5 !important;
+      font-size: 8px !important;
+      padding: 2px 6px !important;
+      border-radius: 4px;
+    }
+    .leaflet-control-attribution a {
+      color: #98A0A5 !important;
+      text-decoration: none;
+    }
+    /* Apply a modest theme once to the pane, not a separate high-contrast GPU
+       layer for every image. Day also gives an unfiltered rendering option. */
+    body[data-theme="night"] .leaflet-tile-pane {
+      filter: invert(1) hue-rotate(180deg) saturate(0.65) brightness(0.85);
+    }
+    body[data-theme="neon"] .leaflet-tile-pane {
+      filter: grayscale(1) invert(1) sepia(1) saturate(2) hue-rotate(115deg);
+    }
+    body[data-theme="day"], body[data-theme="day"] #map,
+    body[data-theme="day"] .leaflet-container { background: #e8e8e0 !important; }
+    .leaflet-tile { backface-visibility: hidden; }
+    #north-ring {
+      position: absolute; inset: 5px; z-index: 900; pointer-events: none;
+      border: 1px solid rgba(0, 229, 255, 0.35); border-radius: 50%;
+      transform-origin: center;
+    }
+    #north-ring span {
+      position: absolute; top: 2px; left: 50%; transform: translateX(-50%);
+      font-size: 12px; font-weight: 800; color: #fff; background: #c43737;
+      border-radius: 50%; width: 21px; height: 21px; text-align: center; line-height: 21px;
+    }
+    #camera-status, #tile-status {
+      position: absolute; left: 50%; transform: translateX(-50%); z-index: 950;
+      border-radius: 14px; padding: 6px 10px; border: 1px solid #627074;
+      background: rgba(21, 25, 29, 0.92); color: #f3f0ea; font-size: 11px;
+      max-width: 65%; text-align: center;
+    }
+    #camera-status { bottom: 22px; }
+    #tile-status { top: 35px; }
+    [hidden] { display: none !important; }
+
+    /* Ather Vehicle Marker (Glowing Round Dot with Pulse) */
+    .ather-marker-container {
+      position: relative;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .ather-marker-core {
+      width: 14px;
+      height: 14px;
+      background-color: #00E676;
+      border: 2.5px solid #FFFFFF;
+      border-radius: 50%;
+      box-shadow: 0 0 12px rgba(0, 230, 118, 0.95);
+      position: absolute;
+      z-index: 2;
+    }
+    .ather-marker-pulse {
+      width: 32px;
+      height: 32px;
+      background-color: rgba(0, 230, 118, 0.4);
+      border-radius: 50%;
+      position: absolute;
+      animation: ather-pulse 2s ease-out infinite;
+      z-index: 1;
+    }
+    @keyframes ather-pulse {
+      0% {
+        transform: scale(0.35);
+        opacity: 1;
+      }
+      70% {
+        transform: scale(1.4);
+        opacity: 0.15;
+      }
+      100% {
+        transform: scale(1.7);
+        opacity: 0;
+      }
+    }
+
+    /* Phone / User GPS Marker (Rotating Arrow Navigation Heading) */
+    .phone-marker-container {
+      position: relative;
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      will-change: transform;
+    }
+    .phone-arrow {
+      width: 0;
+      height: 0;
+      border-left: 8px solid transparent;
+      border-right: 8px solid transparent;
+      border-bottom: 20px solid #00B0FF;
+      filter: drop-shadow(0 0 8px rgba(0, 176, 255, 0.9));
+      transform: translateY(-2px);
+    }
+    .phone-marker-pulse {
+      width: 34px;
+      height: 34px;
+      background-color: rgba(0, 176, 255, 0.35);
+      border-radius: 50%;
+      position: absolute;
+      animation: phone-pulse 2.2s ease-out infinite;
+      z-index: -1;
+    }
+    @keyframes phone-pulse {
+      0% {
+        transform: scale(0.4);
+        opacity: 1;
+      }
+      70% {
+        transform: scale(1.3);
+        opacity: 0.15;
+      }
+      100% {
+        transform: scale(1.6);
+        opacity: 0;
+      }
+    }
+  </style>
+</head>
+<body data-theme="night">
+  <div id="map-viewport">
+    <div id="map"></div>
+    <div id="north-ring" aria-hidden="true"><span>N</span></div>
+    <button id="camera-status" type="button" aria-label="Follow current location">Heading up</button>
+    <button id="tile-status" type="button" hidden>Map tiles unavailable · Retry</button>
+  </div>
+  <script src="leaflet/leaflet.js"></script>
+  <script src="leaflet/leaflet-rotate.umd.min.js"></script>
+  <script src="map.js"></script>
+</body>
+</html>

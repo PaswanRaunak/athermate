@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Ather Pro Public Chargers</title>
+  <!-- Bundled Leaflet — avoids unpkg CDN failures that left the map blank. -->
+  <link rel="stylesheet" href="leaflet/leaflet.css" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { width: 100%; height: 100%; background: #0B0D0F; color: #F3F0EA; overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    #map { position: absolute; inset: 0; width: 100%; height: 100%; background: #0B0D0F; }
+    .leaflet-container { background: #0B0D0F !important; }
+    .leaflet-control-attribution {
+      background: rgba(11, 13, 15, 0.85) !important; color: #98A0A5 !important;
+      font-size: 8px !important; padding: 2px 6px !important; border-radius: 4px;
+    }
+    .leaflet-control-attribution a { color: #98A0A5 !important; text-decoration: none; }
+    .osm-dark-tiles {
+      filter: brightness(0.6) invert(1) contrast(2.5) hue-rotate(195deg) saturate(0.2) brightness(0.75);
+    }
+    .charger-marker {
+      width: 18px; height: 18px; border-radius: 50%;
+      background: #7BD89C; border: 2px solid #FFFFFF;
+      box-shadow: 0 0 8px rgba(123, 216, 156, 0.8);
+    }
+    .charger-marker.busy {
+      background: #FF7043;
+      box-shadow: 0 0 8px rgba(255, 112, 67, 0.75);
+    }
+    .charger-marker.closed {
+      background: #98A0A5;
+      box-shadow: none;
+    }
+    .charger-popup {
+      min-width: 140px; font-size: 12px; line-height: 1.35; color: #15191D;
+    }
+    .charger-popup strong { display: block; margin-bottom: 4px; font-size: 13px; }
+    .charger-popup .muted { color: #555; }
+    #map-error {
+      display: none; position: absolute; inset: 0; z-index: 500;
+      background: rgba(11,13,15,0.88); color: #F3F0EA;
+      align-items: center; justify-content: center; text-align: center;
+      padding: 16px; font-size: 13px; line-height: 1.4;
+    }
+    #map-error.visible { display: flex; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div id="map-error">Map tiles unavailable. Use the charger list below.</div>
+  <script src="leaflet/leaflet.js"></script>
+  <script>
+    (function () {
+      function notifyBridge(fn, arg) {
+        try {
+          if (window.ChargerMapBridge && typeof window.ChargerMapBridge[fn] === 'function') {
+            if (arg === undefined) window.ChargerMapBridge[fn]();
+            else window.ChargerMapBridge[fn](arg);
+          }
+        } catch (e) {}
+      }
+
+      if (typeof L === 'undefined') {
+        document.getElementById('map-error').classList.add('visible');
+        document.getElementById('map-error').textContent =
+          'Map engine failed to load. Use the charger list below.';
+        notifyBridge('onTilesFailed', 'Leaflet failed to load from bundled assets');
+        notifyBridge('onMapReady');
+        return;
+      }
+
+      var DEFAULT_CENTER = [12.9716, 77.5946];
+      var map = L.map('map', {
+        zoomControl: true,
+        attributionControl: true,
+        maxZoom: 19,
+        minZoom: 4
+      }).setView(DEFAULT_CENTER, 13);
+
+      var tileErrors = 0;
+      var tilesFailedNotified = false;
+      var tiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap',
+        className: 'osm-dark-tiles',
+        // Android WebView: avoid endless blank tiles on flaky CDN.
+        errorTileUrl: ''
+      }).addTo(map);
+
+      tiles.on('tileerror', function () {
+        tileErrors += 1;
+        if (!tilesFailedNotified && tileErrors >= 3) {
+          tilesFailedNotified = true;
+          document.getElementById('map-error').classList.add('visible');
+          notifyBridge('onTilesFailed', 'OpenStreetMap tiles failed to load');
+        }
+      });
+
+      var layer = L.layerGroup().addTo(map);
+      var userMarker = null;
+
+      function markerClass(ch) {
+        if (ch.isOpenNow === false) return 'charger-marker closed';
+        if (typeof ch.dbsAvailable === 'number' && ch.dbsAvailable <= 0) return 'charger-marker busy';
+        return 'charger-marker';
+      }
+
+      function popupHtml(ch) {
+        var bits = [];
+        bits.push('<div class="charger-popup">');
+        bits.push('<strong>' + escapeHtml(ch.name || 'Public charger') + '</strong>');
+        if (ch.address) bits.push('<div class="muted">' + escapeHtml(ch.address) + '</div>');
+        if (typeof ch.dbsAvailable === 'number' && typeof ch.dbsTotal === 'number') {
+          bits.push('<div>Available: ' + ch.dbsAvailable + ' / ' + ch.dbsTotal + '</div>');
+        } else if (typeof ch.dbsAvailable === 'number') {
+          bits.push('<div>Available: ' + ch.dbsAvailable + '</div>');
+        }
+        if (ch.connectors && ch.connectors.length) {
+          bits.push('<div class="muted">' + escapeHtml(ch.connectors.join(', ')) + '</div>');
+        }
+        if (ch.isOpenNow === true) bits.push('<div>Open now</div>');
+        if (ch.isOpenNow === false) bits.push('<div>Closed</div>');
+        bits.push('</div>');
+        return bits.join('');
+      }
+
+      function escapeHtml(s) {
+        return String(s)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      function iconFor(ch) {
+        return L.divIcon({
+          className: '',
+          html: '<div class="' + markerClass(ch) + '"></div>',
+          iconSize: [18, 18],
+          iconAnchor: [9, 9]
+        });
+      }
+
+      window.setMapCenter = function (lat, lng, zoom) {
+        if (!isFinite(lat) || !isFinite(lng)) return;
+        if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return;
+        map.setView([lat, lng], zoom || map.getZoom() || 13);
+      };
+
+      window.setUserLocation = function (lat, lng) {
+        if (!isFinite(lat) || !isFinite(lng)) return;
+        if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return;
+        if (userMarker) {
+          userMarker.setLatLng([lat, lng]);
+        } else {
+          userMarker = L.circleMarker([lat, lng], {
+            radius: 7,
+            color: '#FFFFFF',
+            weight: 2,
+            fillColor: '#4FC3F7',
+            fillOpacity: 0.95
+          }).addTo(map);
+        }
+      };
+
+      window.setChargers = function (payloadJson) {
+        layer.clearLayers();
+        var list = [];
+        try {
+          list = typeof payloadJson === 'string' ? JSON.parse(payloadJson) : (payloadJson || []);
+        } catch (e) {
+          list = [];
+        }
+        if (!Array.isArray(list)) list = [];
+        var bounds = [];
+        list.forEach(function (ch) {
+          if (!ch || !isFinite(ch.lat) || !isFinite(ch.lng)) return;
+          if (ch.lat < -90 || ch.lat > 90 || ch.lng < -180 || ch.lng > 180) return;
+          var marker = L.marker([ch.lat, ch.lng], { icon: iconFor(ch) });
+          marker.bindPopup(popupHtml(ch));
+          marker.on('click', function () {
+            notifyBridge('onChargerSelected', String(ch.id || ''));
+          });
+          marker.addTo(layer);
+          bounds.push([ch.lat, ch.lng]);
+        });
+        if (bounds.length > 1) {
+          try { map.fitBounds(bounds, { padding: [28, 28], maxZoom: 15 }); } catch (e) {}
+        } else if (bounds.length === 1) {
+          map.setView(bounds[0], Math.max(map.getZoom(), 14));
+        }
+      };
+
+      window.clearChargers = function () { layer.clearLayers(); };
+
+      map.whenReady(function () {
+        notifyBridge('onMapReady');
+      });
+      // Fallback if whenReady races the bridge attach.
+      setTimeout(function () { notifyBridge('onMapReady'); }, 400);
+    })();
+  </script>
+</body>
+</html>

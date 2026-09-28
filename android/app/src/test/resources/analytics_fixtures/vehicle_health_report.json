@@ -1,0 +1,71 @@
+{
+  "data": {
+    "vehicle": {
+      "id": "scooter-uuid-1",
+      "name": "Ather 450X",
+      "registration_number": "KA01AB1234",
+      "registration_number_masked": "KA01****34",
+      "age_years": "2.5",
+      "odo_kms": 12500,
+      "odo_formatted": "12,500 km"
+    },
+    "health": {
+      "overall": {
+        "score": 86.0,
+        "label": "Good",
+        "max_score": 100,
+        "color_code": "#7BD89C"
+      },
+      "components": [
+        {
+          "id": "battery",
+          "name": "Battery",
+          "score": 90.0,
+          "max_score": 100,
+          "display_type": "progress",
+          "tag": {
+            "text": "Healthy",
+            "text_color": "#FFFFFF",
+            "background_color": "#7BD89C"
+          }
+        },
+        {
+          "id": "motor",
+          "name": "Motor",
+          "score": 82.0,
+          "max_score": 100,
+          "display_type": "progress",
+          "tag": {
+            "text": "Good"
+          }
+        }
+      ],
+      "wear_and_tear_components": [
+        {
+          "id": "tyre_front",
+          "name": "Front tyre",
+          "life_percent": 64,
+          "current_kms": 8000,
+          "remaining_kms": 4500,
+          "tag": {
+            "text": "Monitor"
+          },
+          "description": {
+            "text": "Replace within next service window"
+          }
+        }
+      ]
+    },
+    "meta": {
+      "last_updated": "2026-09-20T10:00:00Z",
+      "refresh_note": "Refreshes weekly"
+    },
+    "resale_estimation": {
+      "currency": "INR",
+      "disclaimer": "Indicative only",
+      "min_value": 90000,
+      "max_value": 110000,
+      "display_text": "₹90,000 – ₹1,10,000"
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "data": {
+    "balance": 247.5,
+    "wallet_status": "ACTIVE",
+    "credits": 12.0,
+    "transactions": [
+      {
+        "id": "txn_1001",
+        "title": "Public charge — Indiranagar",
+        "amount": -42.75,
+        "currency": "INR",
+        "timestamp": "2026-03-18T10:22:00Z",
+        "type": "DEBIT"
+      },
+      {
+        "id": "txn_1000",
+        "title": "Wallet top-up",
+        "amount": 500.0,
+        "currency": "INR",
+        "timestamp": "2026-03-10T08:00:00Z",
+        "type": "CREDIT"
+      }
+    ]
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "state": {
+    "delta": {
+      "telemetry.charging": {
+        "chargingStatus": "Charging",
+        "chargingHeartBeat": "On",
+        "chargerConnected": "On",
+        "time2FullCharge": 60,
+        "time2EightyCharge": 25,
+        "chargerType": "home"
+      },
+      "scooters.remote_charging": {
+        "action": "start"
+      }
+    }
+  }
+}

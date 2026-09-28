@@ -1,0 +1,62 @@
+{
+  "telemetry": {
+    "bike": {
+      "battery_soc": 84.07,
+      "range": 120.5,
+      "odo": 27659.418,
+      "vehicle_state": "parked",
+      "mode": "Ride",
+      "savings": 68423.6,
+      "software_version": "6.2.1",
+      "gsm_signal": 18,
+      "gps_location": {
+        "lat": 12.9716,
+        "lng": 77.5946,
+        "ALT_M": 920.0,
+        "Accuracy": 6.4,
+        "heading": 45.0,
+        "speed": 0.0
+      },
+      "mode_range": {
+        "SmartEco": 140.0,
+        "eco": 130.0,
+        "ride": 120.0,
+        "Sport": 95.0,
+        "warp": 80.0,
+        "warp_plus": 70.0
+      },
+      "predicted_mode_range": {
+        "Ride": 127.78,
+        "Sport": 98.5
+      }
+    },
+    "charging": {
+      "chargingStatus": "Completed",
+      "chargingHeartBeat": "Off",
+      "chargerConnected": "On",
+      "time2FullCharge": 0,
+      "time2EightyCharge": 0,
+      "chargerType": "home"
+    },
+    "tpms": {
+      "front_pressure": 32.0,
+      "rear_pressure": 36.0,
+      "front_temperature": 28.5,
+      "rear_temperature": 29.0
+    }
+  },
+  "app": {
+    "ather_stack_features": {
+      "anti_theft": true,
+      "vacation_mode": "off",
+      "coasting_regen": 1
+    }
+  },
+  "scooters": {
+    "remote_charging": {
+      "action": "stop",
+      "state": 1,
+      "error": "0"
+    }
+  }
+}

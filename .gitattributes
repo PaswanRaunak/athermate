@@ -1,0 +1,11 @@
+* text=auto
+*.kt text eol=lf
+*.java text eol=lf
+*.kts text eol=lf
+*.md text eol=lf
+android/gradlew text eol=lf
+android/gradlew.bat -text whitespace=cr-at-eol
+# Preserve recovered bundled assets exactly as packaged in the original APK.
+android/app/src/main/assets/** -text -whitespace
+*.png binary
+*.jar binary

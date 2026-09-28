@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">Ather Pro</string>
+    <string name="widget_title">Ather Pro</string>
+    <string name="widget_description">Glanceable SoC, range, and sync status</string>
+    <string name="widget_content_description">Ather Pro battery and range widget</string>
+    <string name="widget_soc_placeholder">--</string>
+    <string name="widget_range_placeholder">Range --</string>
+    <string name="widget_sync_never">Never synced</string>
+    <string name="widget_connection_offline">OFFLINE</string>
+</resources>

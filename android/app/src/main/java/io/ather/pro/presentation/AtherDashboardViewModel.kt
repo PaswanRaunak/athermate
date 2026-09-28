@@ -1,0 +1,66 @@
+package io.ather.pro.presentation
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import io.ather.pro.domain.charging.ChargeLimitController
+import io.ather.pro.domain.model.ScooterDashboardState
+import io.ather.pro.domain.repository.ScooterRepository
+import kotlinx.coroutines.flow.StateFlow
+
+class AtherDashboardViewModel(
+    private val repository: ScooterRepository
+) : ViewModel() {
+    val dashboard: StateFlow<ScooterDashboardState> = repository.dashboard
+    val chargeLimit: StateFlow<ChargeLimitController.Snapshot> = repository.chargeLimit
+
+    fun refresh() = repository.refresh()
+
+    fun setScooterModel(model: io.ather.pro.domain.model.ScooterModel) {
+        repository.updateModel(model)
+    }
+
+    fun setTariffRate(rate: Double) {
+        repository.updateTariff(rate)
+    }
+
+    fun clearTripHistory() {
+        repository.clearTrips()
+    }
+
+    fun pauseCharging(): Boolean = repository.pauseCharging()
+
+    fun resumeCharging(): Boolean = repository.resumeCharging()
+
+    fun clearRemoteChargingLatch() {
+        repository.clearRemoteChargingLatch()
+    }
+
+    fun tickRemoteChargingTimeouts() {
+        repository.tickRemoteChargingTimeouts()
+    }
+
+    fun setChargeLimit(enabled: Boolean, percent: Int) {
+        repository.setChargeLimit(enabled, percent)
+    }
+
+    fun retryChargeLimit() {
+        repository.retryChargeLimit()
+    }
+
+    override fun onCleared() {
+        repository.disconnect()
+        super.onCleared()
+    }
+
+    class Factory(
+        private val repository: ScooterRepository
+    ) : ViewModelProvider.Factory {
+        @Suppress("UNCHECKED_CAST")
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            if (modelClass.isAssignableFrom(AtherDashboardViewModel::class.java)) {
+                return AtherDashboardViewModel(repository) as T
+            }
+            throw IllegalArgumentException("Unknown ViewModel: ${modelClass.name}")
+        }
+    }
+}
