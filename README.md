@@ -1,6 +1,24 @@
-# Athr+
+<p align="center">
+  <img src="docs/assets/app_icon.png" width="120" height="120" alt="Athr+ Logo" />
+</p>
 
-An independent, private companion application and widget for smart electric scooters.
+<h1 align="center">Athr+</h1>
+
+<p align="center">
+  <b>An independent, private companion application and widget for smart electric scooters.</b>
+</p>
+
+---
+
+## Why This Project Exists
+
+This application was created out of frustration with arbitrary device restrictions:
+
+- **Unlocked Bootloader & Custom ROM Blocks**: The official Ather app was restricted on devices with unlocked bootloaders, disappearing from the Google Play Store or failing device integrity checks.
+- **Developer Options Restrictions**: Devices with Developer Options enabled are constantly blocked or prompted with intrusive "Turn off developer options" warnings, preventing developers and power users from accessing their own vehicle companion app.
+- **Paid Pro Pack Frustrations**: Despite paying for an active **Ather Pro** subscription, the official companion app delivered a degraded, restrictive user experience on customized devices.
+
+**Athr+** was built and open-sourced to give vehicle owners complete freedom, reliability, and full access to their scooter's telemetry, charging limits, and trip history without anti-power-user barriers.
 
 ---
 
