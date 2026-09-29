@@ -1,6 +1,109 @@
 <?xml version="1.0" encoding="utf-8"?>
-<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
-    <path android:fillColor="@android:color/transparent" android:strokeColor="#D5FFE6" android:strokeWidth="5" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M43,30 L43,26 L65,26 L65,30 M38,33 L70,33 Q75,33 75,38 L75,76 Q75,81 70,81 L38,81 Q33,81 33,76 L33,38 Q33,33 38,33" />
-    <path android:fillColor="@android:color/transparent" android:strokeColor="#79E3AD" android:strokeWidth="5" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M43,67 L43,59 Q43,54 49,54 L59,54 Q65,54 65,47 L65,45" />
-    <path android:fillColor="#FFFFFF" android:pathData="M43,63 A4,4 0,1 0,43,71 A4,4 0,1 0,43,63 M65,40 A4,4 0,1 0,65,48 A4,4 0,1 0,65,40" />
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Speed Dash lines -->
+    <path
+        android:pathData="M16,57 L23,57 M12,63 L21,63 M15,69 L22,69"
+        android:strokeColor="#00E59B"
+        android:strokeWidth="1.6"
+        android:strokeLineCap="round"
+        android:strokeAlpha="0.45" />
+
+    <!-- Rear Wheel (Ather Green Tires & Accents) -->
+    <path
+        android:pathData="M34,56.5 A11.5,11.5 0 1,0 34,79.5 A11.5,11.5 0 1,0 34,56.5 Z"
+        android:fillColor="#131B28"
+        android:strokeColor="#334155"
+        android:strokeWidth="2.5" />
+    <path
+        android:pathData="M34,59.5 A8.5,8.5 0 1,0 34,76.5 A8.5,8.5 0 1,0 34,59.5 Z"
+        android:strokeColor="#00E59B"
+        android:strokeWidth="2.2" />
+    <path
+        android:pathData="M34,64.5 A3.5,3.5 0 1,0 34,71.5 A3.5,3.5 0 1,0 34,64.5 Z"
+        android:fillColor="#00E59B" />
+
+    <!-- Front Wheel (Ather Green Tires & Accents) -->
+    <path
+        android:pathData="M74,56.5 A11.5,11.5 0 1,0 74,79.5 A11.5,11.5 0 1,0 74,56.5 Z"
+        android:fillColor="#131B28"
+        android:strokeColor="#334155"
+        android:strokeWidth="2.5" />
+    <path
+        android:pathData="M74,59.5 A8.5,8.5 0 1,0 74,76.5 A8.5,8.5 0 1,0 74,59.5 Z"
+        android:strokeColor="#00E59B"
+        android:strokeWidth="2.2" />
+    <path
+        android:pathData="M74,64.5 A3.5,3.5 0 1,0 74,71.5 A3.5,3.5 0 1,0 74,64.5 Z"
+        android:fillColor="#00E59B" />
+
+    <!-- Front Fork -->
+    <path
+        android:pathData="M69,52 L74,68"
+        android:strokeColor="#64748B"
+        android:strokeWidth="3"
+        android:strokeLineCap="round" />
+
+    <!-- Solid Seat -->
+    <path
+        android:pathData="M25,47 C29,43.5 45,43.5 50,47 Z"
+        android:fillColor="#1E293B" />
+
+    <!-- Main Scooter Bodywork -->
+    <path
+        android:pathData="M25,47 L50,47 L52,56 L58,56 L65,37 L78,46 L71,58 L64,62 L44,62 L36,57 L25,47 Z"
+        android:fillColor="#FFFFFF" />
+
+    <!-- Lower Battery Spine -->
+    <path
+        android:pathData="M43,62 L64,62 L63,66 L44,66 Z"
+        android:fillColor="#1E293B" />
+
+    <!-- Inner Dark Panels -->
+    <path
+        android:pathData="M28,49 L46,49 L41,55 L29,54 Z"
+        android:fillColor="#0F172A" />
+    <path
+        android:pathData="M65,39 L74,45 L69,53 L62,46 Z"
+        android:fillColor="#0F172A" />
+
+    <!-- Headlight DRL -->
+    <path
+        android:pathData="M75,45 L78,47.5 L73,53"
+        android:strokeColor="#00E59B"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+
+    <!-- Stem & Handlebar -->
+    <path
+        android:pathData="M65,37 L65,32"
+        android:strokeColor="#64748B"
+        android:strokeWidth="3"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M59,33.5 L65,32 L71,33.5"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M58.5,32.2 A1.3,1.3 0 1,0 58.5,34.8 A1.3,1.3 0 1,0 58.5,32.2 Z"
+        android:fillColor="#00E59B" />
+    <path
+        android:pathData="M71.5,32.2 A1.3,1.3 0 1,0 71.5,34.8 A1.3,1.3 0 1,0 71.5,32.2 Z"
+        android:fillColor="#00E59B" />
+    <path
+        android:pathData="M63.5,30.5 h3 v2 h-3 z"
+        android:fillColor="#00E59B" />
+
+    <!-- Athr+ Plus Accent Badge -->
+    <path
+        android:pathData="M36,48.3 L36,54.7 M32.8,51.5 L39.2,51.5"
+        android:strokeColor="#FF5A2A"
+        android:strokeWidth="2.2"
+        android:strokeLineCap="round" />
 </vector>

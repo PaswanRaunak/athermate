@@ -124,9 +124,11 @@ class MonitoringController(
         context.stopService(Intent(context, ScooterMonitorService::class.java))
     }
 
-    fun beginBackgroundCheck() {
+    fun beginBackgroundCheck(): Boolean {
+        if (workerChecking) return false
         workerChecking = true
         sessionStore.current()?.takeIf { it.isComplete }?.let { repository.applyCredentials(it.token, it.vehicleUuid) }
+        return true
     }
 
     fun endBackgroundCheck() {

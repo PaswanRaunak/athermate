@@ -103,7 +103,7 @@ class ScooterMonitorService : Service() {
             return
         }
         val lock = cutoffWakeLock ?: getSystemService(PowerManager::class.java)
-            .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "ScootScribe:ChargeCutoff")
+            .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Athr+:ChargeCutoff")
             .apply { setReferenceCounted(false) }.also { cutoffWakeLock = it }
         val now = SystemClock.elapsedRealtime()
         if (!lock.isHeld || now - wakeLockRenewedAt >= 60_000L) {

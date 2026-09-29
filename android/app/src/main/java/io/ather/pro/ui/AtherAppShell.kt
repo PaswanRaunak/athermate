@@ -54,7 +54,7 @@ fun AtherAppShell(
         topBar = {
             TopAppBar(title = {
                 Column {
-                    Text("SCOOTSCRIBE", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                    Text("ATHR+", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
                     Text(if (selected == Destination.HOME) dashboard.vehicleProfile?.displayName
                         ?: dashboard.settings.selectedModel.displayName else selected.label,
                         style = MaterialTheme.typography.titleMedium)

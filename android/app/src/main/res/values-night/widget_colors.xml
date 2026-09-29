@@ -1,10 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="widget_surface">#171D19</color>
-    <color name="widget_tile">#242D27</color>
-    <color name="widget_text">#F0F5EF</color>
-    <color name="widget_secondary">#B4C2B5</color>
-    <color name="widget_accent">#A3DCA6</color>
-    <color name="widget_active">#304E36</color>
-    <color name="widget_on_active">#D6F2D6</color>
+    <color name="widget_surface">#181E2D</color>
+    <color name="widget_panel">#28344D</color>
+    <color name="widget_text">#E9EDFC</color>
+    <color name="widget_secondary">#BAC7E3</color>
+    <color name="widget_accent">#B3C7FF</color>
+    <color name="widget_on_accent">#172E60</color>
 </resources>
