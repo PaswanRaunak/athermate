@@ -194,3 +194,13 @@ docs/                    # Technical architecture & release notes
 - **Direct End-to-End Auth**: Sign-in is initiated directly by the user via mobile OTP verification.
 - **Hardware-Backed Encryption**: Session tokens and vehicle identifiers are saved locally in encrypted storage backed by the device Keystore.
 - **Local-First Privacy**: Ride analytics and charging logs remain on your device and are never sent to third-party tracking services.
+
+---
+
+## Legal Notice & Disclaimer
+
+> [!NOTE]
+> **Notice**: This application was developed independently using exclusively publicly available information, standard open network protocols, and resources accessible online. It contains no proprietary source code, confidential intellectual property, or trade secrets.
+>
+> This project is completely independent and is not affiliated with, authorized, maintained, sponsored, or endorsed by any vehicle manufacturer, automotive brand, or corporate entity. All trademarks, service marks, trade names, and product names are the property of their respective owners. The software is provided solely for personal interoperability, research, educational, and hobbyist purposes.
+
