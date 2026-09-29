@@ -40,24 +40,23 @@ fun AtherDashboardScreen(
             }
         }
         item { ModeRangeCard(dashboard) }
-        item { BatteryHealthCard(dashboard) }
-        item {
-            Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
-                Row(Modifier.fillMaxWidth().padding(18.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Column { Text("Odometer", style = MaterialTheme.typography.labelMedium)
-                        Text("${number(dashboard.telemetry?.odoKm, 1)} km", style = MaterialTheme.typography.titleLarge) }
-                    Column { Text("Fuel savings", style = MaterialTheme.typography.labelMedium)
-                        Text("₹${number(dashboard.telemetry?.savingsInr)}", style = MaterialTheme.typography.titleLarge) }
-                }
-            }
-        }
         item { BatteryHistoryCard(dashboard = dashboard, chargeLimitPercent = chargeLimit.percent.takeIf { chargeLimit.enabled }) }
-        item { RideGraphsCard(dashboard) }
-        item { TripHistoryPanel(trips = dashboard.recentTrips, tariffRate = dashboard.settings.tariffRatePerKWh, onClear = onClearTrips) }
         item { TextButton(onClick = { details = !details }, modifier = Modifier.fillMaxWidth()) {
-            Text(if (details) "Hide vehicle details" else "Vehicle details", fontWeight = FontWeight.SemiBold)
+            Text(if (details) "Hide details" else "Battery health & vehicle details", fontWeight = FontWeight.SemiBold)
         } }
         if (details) {
+            item { BatteryHealthCard(dashboard) }
+            item {
+                Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
+                    Row(Modifier.fillMaxWidth().padding(18.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Column { Text("Odometer", style = MaterialTheme.typography.labelMedium)
+                            Text("${number(dashboard.telemetry?.odoKm, 1)} km", style = MaterialTheme.typography.titleLarge) }
+                        Column { Text("Fuel savings", style = MaterialTheme.typography.labelMedium)
+                            Text("₹${number(dashboard.telemetry?.savingsInr)}", style = MaterialTheme.typography.titleLarge) }
+                    }
+                }
+            }
+            item { TripHistoryPanel(trips = dashboard.recentTrips, tariffRate = dashboard.settings.tariffRatePerKWh, onClear = onClearTrips) }
             item { RiderCockpitCard(dashboard) }
             dashboard.telemetry?.let { telemetry ->
                 item { ConnectivityMetaCard(telemetry) }

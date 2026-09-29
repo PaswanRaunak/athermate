@@ -39,7 +39,7 @@ fun FreshnessLabel(state: ScooterDashboardState, modifier: Modifier = Modifier) 
 @Composable
 fun EnergySummaryCard(state: ScooterDashboardState) {
     val soc = state.telemetry?.batterySoc?.takeIf { it.isFinite() && it in 0.0..100.0 }
-    val range = RangeEstimator.current(state.telemetry)
+    val range = RangeEstimator.current(state.telemetry, state.settings.selectedModel)
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
         shape = RoundedCornerShape(26.dp), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
@@ -65,10 +65,12 @@ fun EnergySummaryCard(state: ScooterDashboardState) {
 
 @Composable
 fun ModeRangeCard(state: ScooterDashboardState) {
-    val ranges = RangeEstimator.modes(state.telemetry)
+    val ranges = RangeEstimator.modes(state.telemetry, state.settings.selectedModel)
     Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Range by ride mode", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            val soc = state.telemetry?.batterySoc?.takeIf { it.isFinite() && it in 0.0..100.0 }
+            Text(soc?.let { "Range at ${number(it)}% battery" } ?: "Range by ride mode",
+                style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             if (ranges.isEmpty()) Text("Mode ranges appear when reported by your scooter.", style = MaterialTheme.typography.bodySmall)
             ranges.chunked(2).forEach { pair ->
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -84,7 +86,7 @@ fun ModeRangeCard(state: ScooterDashboardState) {
                     if (pair.size == 1) Spacer(Modifier.weight(1f))
                 }
             }
-            Text("Reported estimates change with riding conditions.", style = MaterialTheme.typography.bodySmall,
+            Text("Estimated remaining kilometres. Changes with riding conditions.", style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
@@ -93,7 +95,7 @@ fun ModeRangeCard(state: ScooterDashboardState) {
 @Composable
 fun ChargeEstimateCard(state: ScooterDashboardState, target: Int) {
     val estimate = RangeEstimator.target(state.telemetry, target,
-        state.settings.selectedModel.usableCapacityWh, state.settings.tariffRatePerKWh)
+        state.settings.selectedModel.usableCapacityWh, state.settings.tariffRatePerKWh, state.settings.selectedModel)
     Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("Charge to $target%", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)

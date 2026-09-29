@@ -1,12 +1,12 @@
 <resources>
     <string name="app_name">ScootScribe</string>
     <string name="widget_title">ScootScribe</string>
-    <string name="widget_description">Glanceable SoC, range, and sync status</string>
+    <string name="widget_description">Battery and remaining kilometres in each supported ride mode</string>
     <string name="widget_content_description">ScootScribe battery and range widget</string>
     <string name="widget_soc_placeholder">—</string>
     <string name="widget_range_placeholder">Range —</string>
     <string name="widget_sync_never">Never synced</string>
     <string name="widget_connection_offline">OFFLINE</string>
-    <string name="widget_modes_label">Range by mode · current charge</string>
-    <string name="widget_graph_description">Battery history, 100 percent at top to zero at bottom</string>
+    <string name="widget_modes_label">Range at current charge</string>
+    <string name="widget_modes_empty">Open app to sync mode ranges</string>
 </resources>

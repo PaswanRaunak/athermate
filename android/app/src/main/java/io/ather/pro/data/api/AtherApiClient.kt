@@ -326,10 +326,12 @@ class AtherApiClient {
             )
 
         val isCharging = when {
-            chargingStatus.equals("Charging", ignoreCase = true) -> true
+            chargerConnected == false -> false
+            io.ather.pro.domain.charging.ChargingControl.isStoppedStatus(chargingStatus) -> false
+            io.ather.pro.domain.charging.ChargingControl.isActiveStatus(chargingStatus) -> true
             heartbeat.equals("On", ignoreCase = true) -> true
+            heartbeat.equals("Off", ignoreCase = true) -> false
             vehicleState.equals("charging", ignoreCase = true) -> true
-            chargingStatus != null -> false
             else -> null
         }
 
@@ -575,17 +577,7 @@ class AtherApiClient {
         current.add(parts.last(), value)
     }
 
-    private fun canonicalModeName(key: String): String? = when (
-        key.lowercase().replace("_", "").replace("-", "")
-    ) {
-        "smarteco" -> "SmartEco"
-        "eco" -> "Eco"
-        "ride" -> "Ride"
-        "sport" -> "Sport"
-        "warp" -> "Warp"
-        "warpplus" -> "WarpPlus"
-        else -> null
-    }
+    private fun canonicalModeName(key: String): String? = io.ather.pro.domain.range.RideMode.from(key)?.apiName
 
     private fun JsonObject?.objectOrNull(key: String): JsonObject? =
         this?.get(key)?.takeIf(JsonElement::isJsonObject)?.asJsonObject

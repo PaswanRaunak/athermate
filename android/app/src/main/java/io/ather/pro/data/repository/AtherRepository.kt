@@ -500,7 +500,7 @@ class AtherRepository(
         val decision = ChargeLimitController.onTelemetry(
             state = _chargeLimit.value,
             telemetry = telemetry,
-            lastUpdatedMs = evidence.completeAt,
+            lastUpdatedMs = evidence.batteryAt,
             nowMs = nowMs,
             chargingUpdatedMs = evidence.chargingAt
         )
@@ -521,7 +521,7 @@ class AtherRepository(
                     // its telemetry confirmation without sending a duplicate command.
                     return
                 }
-                val dispatched = sendRemoteCharging(start = false) { result ->
+                val dispatched = requestPause { result ->
                     result.exceptionOrNull()?.let { error ->
                         val current = _chargeLimit.value
                         updateChargeLimit(
@@ -616,7 +616,11 @@ class AtherRepository(
         }
     }
 
-    override fun pauseCharging(): Boolean = sendRemoteCharging(start = false)
+    override fun pauseCharging(): Boolean = requestPause()
+
+    /** The limit and the visible Pause button share this exact HTTP command path. */
+    private fun requestPause(onHttpResult: ((Result<Unit>) -> Unit)? = null): Boolean =
+        sendRemoteCharging(start = false, onHttpResult = onHttpResult)
 
     override fun resumeCharging(): Boolean = sendRemoteCharging(start = true)
 

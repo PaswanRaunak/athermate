@@ -9,6 +9,8 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
+import android.os.SystemClock
 import androidx.core.app.ServiceCompat
 import io.ather.pro.appContainer
 import io.ather.pro.domain.model.ConnectionStatus
@@ -27,6 +29,8 @@ class ScooterMonitorService : Service() {
     private var observing = false
     private var previousText: String? = null
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
+    private var cutoffWakeLock: PowerManager.WakeLock? = null
+    private var wakeLockRenewedAt = 0L
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -58,6 +62,7 @@ class ScooterMonitorService : Service() {
                 while (isActive) {
                     val state = appContainer.repository.dashboard.value
                     val limit = appContainer.repository.chargeLimit.value
+                    keepCutoffAwake(limit.enabled && appContainer.monitoring.requested)
                     val stale = state.lastUpdated?.let { System.currentTimeMillis() - it > 60_000 } ?: true
                     val connection = when {
                         state.connection != ConnectionStatus.CONNECTED -> "Reconnecting"
@@ -91,8 +96,25 @@ class ScooterMonitorService : Service() {
 
     private fun notification(message: String): Notification = MonitorNotification.build(this, message)
 
+    /** Keep the limit timer running with the screen off, only during monitored charging. */
+    private fun keepCutoffAwake(required: Boolean) {
+        if (!required) {
+            cutoffWakeLock?.takeIf { it.isHeld }?.release()
+            return
+        }
+        val lock = cutoffWakeLock ?: getSystemService(PowerManager::class.java)
+            .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "ScootScribe:ChargeCutoff")
+            .apply { setReferenceCounted(false) }.also { cutoffWakeLock = it }
+        val now = SystemClock.elapsedRealtime()
+        if (!lock.isHeld || now - wakeLockRenewedAt >= 60_000L) {
+            lock.acquire(120_000L)
+            wakeLockRenewedAt = now
+        }
+    }
+
     override fun onDestroy() {
         scope.cancel()
+        keepCutoffAwake(false)
         networkCallback?.let { callback ->
             runCatching { getSystemService(ConnectivityManager::class.java).unregisterNetworkCallback(callback) }
         }

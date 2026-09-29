@@ -18,6 +18,7 @@ data class ChargingEvidence(
     companion object {
         fun hasChargeReading(telemetry: ScooterTelemetry): Boolean =
             telemetry.charging != null || telemetry.chargerConnected == false ||
-                !telemetry.chargingStatus.isNullOrBlank() || telemetry.remoteChargingAction.equals("stop", ignoreCase = true)
+                ChargingControl.isActiveStatus(telemetry.chargingStatus) ||
+                ChargingControl.isStoppedStatus(telemetry.chargingStatus)
     }
 }

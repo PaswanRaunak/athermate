@@ -195,6 +195,28 @@ class AtherTelemetryParserTest {
         assertTrue(telem.featureFlags.isEmpty())
     }
 
+    @Test fun acceptsZipAndKeepsWarpPlusDistinctFromWarp() {
+        val telemetry = client.parseTelemetry("""{"telemetry":{"bike":{"mode_range":{"zip":30,"Warp+":24,"warp":26}}}}""")!!
+        assertEquals(setOf("Zip", "WarpPlus", "Warp"), telemetry.modeRanges.keys)
+        assertEquals(24.0, telemetry.modeRanges.getValue("WarpPlus").rawRangeKm!!, 0.0)
+    }
+
+    @Test fun desiredStopIsNotPhysicalChargingEvidence() {
+        val echo = client.parseTelemetry("""{"scooters":{"remote_charging":{"action":"stop"}}}""")!!
+        assertNull(echo.charging)
+        assertFalse(io.ather.pro.domain.charging.ChargingEvidence.hasChargeReading(echo))
+        val unknown = client.parseTelemetry("""{"telemetry":{"charging":{"chargingStatus":"Unknown"}}}""")!!
+        assertNull(unknown.charging)
+        assertFalse(io.ather.pro.domain.charging.ChargingEvidence.hasChargeReading(unknown))
+    }
+
+    @Test fun freshPausedStatusWinsOverHeartbeatAndHeartbeatOffIsAStopReading() {
+        val paused = client.parseTelemetry("""{"telemetry":{"charging":{"chargingStatus":"Paused","chargingHeartBeat":"On"}}}""")!!
+        assertEquals(false, paused.charging)
+        val off = client.parseTelemetry("""{"telemetry":{"charging":{"chargingHeartBeat":"Off"}}}""")!!
+        assertEquals(false, off.charging)
+    }
+
     private fun parseFixture(path: String): ScooterTelemetry {
         val stream = requireNotNull(javaClass.classLoader?.getResourceAsStream(path)) {
             "Missing fixture: $path"

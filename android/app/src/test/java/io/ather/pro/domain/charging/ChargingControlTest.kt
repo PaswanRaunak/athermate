@@ -85,7 +85,7 @@ class ChargingControlTest {
     }
 
     @Test
-    fun staleMergedChargingAfterStop_stillAllowsResume() {
+    fun freshPausedStatusClearsStaleChargingAndAllowsResume() {
         // Field failure: stop succeeds, but sparse deltas leave charging=true merged in.
         val before = ScooterTelemetry(
             charging = true,
@@ -95,7 +95,7 @@ class ChargingControlTest {
             batterySoc = 55.0
         )
         val stopDelta = ScooterTelemetry(
-            remoteChargingAction = "stop"
+            remoteChargingAction = "stop", chargingStatus = "Paused"
         )
         val merged = before.mergeWith(stopDelta)
 
@@ -267,5 +267,23 @@ class ChargingControlTest {
         assertTrue(ChargingControl.isPaused(afterStop))
         val view = ChargingControl.resolveView(afterStop, RemoteChargingCommand(), t0)
         assertTrue(view.canResume)
+    }
+
+    @Test fun stopEchoAloneNeverConfirmsOrTurnsOffAnActiveCharge() {
+        val before = ScooterTelemetry(batterySoc = 79.0, charging = true, chargerConnected = true)
+        val echo = ScooterTelemetry(remoteChargingAction = "stop")
+        val merged = before.mergeWith(echo)
+        assertTrue(ChargingControl.isActivelyCharging(merged))
+        assertFalse(ChargingEvidence.hasChargeReading(echo))
+        val pending = RemoteChargingCommand(action = "stop", phase = RemoteCommandPhase.ACCEPTED, requestedAt = t0)
+        assertEquals(RemoteCommandPhase.ACCEPTED, ChargingControl.advanceCommand(pending, echo, t0 + 1_000).phase)
+        assertEquals(RemoteCommandPhase.ACCEPTED, ChargingControl.advanceCommand(pending, merged, t0 + 1_000).phase)
+    }
+
+    @Test fun freshChargingReplacesAnOldDisconnectedFlagWithoutNeedingFullSnapshot() {
+        val before = ScooterTelemetry(charging = false, chargerConnected = false, chargingStatus = "Disconnected")
+        val merged = before.mergeWith(ScooterTelemetry(charging = true))
+        assertTrue(ChargingControl.isPluggedIn(merged))
+        assertTrue(ChargingControl.isActivelyCharging(merged))
     }
 }

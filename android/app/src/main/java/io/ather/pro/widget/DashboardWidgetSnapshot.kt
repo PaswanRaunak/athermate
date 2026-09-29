@@ -2,15 +2,16 @@ package io.ather.pro.widget
 
 import android.content.Context
 import io.ather.pro.domain.range.RangeEstimator
+import io.ather.pro.domain.range.RideMode
+import io.ather.pro.domain.range.RideModeRange
 import io.ather.pro.domain.charging.ChargeLimitController
+import io.ather.pro.domain.charging.ChargingControl
 import com.google.gson.Gson
 import io.ather.pro.domain.model.ConnectionStatus
 import io.ather.pro.domain.model.ScooterDashboardState
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-
-data class WidgetBatteryPoint(val timestamp: Long, val soc: Double)
 
 /** Lightweight prefs snapshot for the home-screen widget (no Room/auth coupling). */
 data class DashboardWidgetSnapshot(
@@ -19,16 +20,24 @@ data class DashboardWidgetSnapshot(
     val syncLabel: String = "Never synced",
     val connectionLabel: String = "OFFLINE",
     val updatedAtMs: Long = 0L,
-    val modesText: String = "Mode ranges unavailable",
-    val batteryHistory: List<WidgetBatteryPoint> = emptyList(),
+    val modeRanges: List<RideModeRange> = emptyList(),
     val chargeLabel: String = "Limit off",
-    val limitPercent: Int? = null
+    val charging: Boolean = false,
+    val currentMode: String? = null
 ) {
     val socText: String
-        get() = socPercent?.let { String.format(Locale.US, "%.0f%%", it) } ?: "--"
+        get() = socPercent?.let { String.format(Locale.getDefault(), "%.0f%%", it) } ?: "—"
 
     val rangeText: String
-        get() = rangeKm?.let { String.format(Locale.US, "%.0f km", it) } ?: "Range --"
+        get() = rangeKm?.let { String.format(Locale.getDefault(), "%.0f km", it) } ?: "— km"
+
+    val modesLabel: String
+        get() = socPercent?.let { "Range at $socText battery" } ?: "Range by mode"
+
+    val modesText: String
+        get() = modeRanges.joinToString(" · ") {
+            "${it.name} ${String.format(Locale.getDefault(), "%.0f", it.km)} km"
+        }.ifBlank { "Open app to sync mode ranges" }
 
     companion object {
         private const val PREFS = "ather_dashboard_widget"
@@ -40,12 +49,14 @@ data class DashboardWidgetSnapshot(
 
         fun fromDashboard(state: ScooterDashboardState, limit: ChargeLimitController.Snapshot = ChargeLimitController.Snapshot()): DashboardWidgetSnapshot {
             val telemetry = state.telemetry
-            val range = RangeEstimator.current(telemetry)
-            val sync = state.lastUpdated?.let {
+            val model = state.settings.selectedModel
+            val range = RangeEstimator.current(telemetry, model)
+            val batteryUpdatedAt = state.batteryUpdatedAt ?: state.lastUpdated
+            val sync = batteryUpdatedAt?.let {
                 "Synced " + SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(it))
             } ?: "Never synced"
             return DashboardWidgetSnapshot(
-                socPercent = telemetry?.batterySoc?.takeIf { it.isFinite() },
+                socPercent = telemetry?.batterySoc?.takeIf { it.isFinite() && it in 0.0..100.0 },
                 rangeKm = range?.takeIf { it.isFinite() && it >= 0.0 },
                 syncLabel = sync,
                 connectionLabel = when (state.connection) {
@@ -54,13 +65,16 @@ data class DashboardWidgetSnapshot(
                     ConnectionStatus.DISCONNECTED -> "OFFLINE"
                     ConnectionStatus.ERROR -> "ERROR"
                 },
-                updatedAtMs = state.lastUpdated ?: 0L,
-                modesText = RangeEstimator.modes(telemetry).take(6).chunked(2).joinToString("\n") { pair ->
-                    pair.joinToString("  ·  ") { "${it.name} ${String.format(Locale.getDefault(), "%.0f", it.km)} km" }
-                }.ifBlank { "Mode ranges unavailable" },
-                batteryHistory = state.telemetryHistory.takeLast(120).map { WidgetBatteryPoint(it.timestamp, it.batterySoc) },
-                chargeLabel = if (limit.enabled) "Limit ${limit.percent}% · ${limit.status.name.lowercase()}" else "Limit off",
-                limitPercent = limit.percent.takeIf { limit.enabled }
+                updatedAtMs = batteryUpdatedAt ?: 0L,
+                modeRanges = RangeEstimator.modes(telemetry, model),
+                chargeLabel = if (limit.enabled) "Limit ${limit.percent}% · " + when (limit.status) {
+                    ChargeLimitController.Status.PENDING -> "Stopping"
+                    ChargeLimitController.Status.CONFIRMED -> "Paused"
+                    ChargeLimitController.Status.ERROR -> "Check app"
+                    else -> "Watching"
+                } else "Limit off",
+                charging = ChargingControl.isActivelyCharging(telemetry),
+                currentMode = RideMode.from(telemetry?.mode)?.takeIf { it.supportedBy(model) }?.displayName
             )
         }
 
@@ -74,10 +88,13 @@ data class DashboardWidgetSnapshot(
                 syncLabel = prefs.getString(KEY_SYNC, "Never synced") ?: "Never synced",
                 connectionLabel = prefs.getString(KEY_CONN, "OFFLINE") ?: "OFFLINE",
                 updatedAtMs = prefs.getLong(KEY_UPDATED, 0L),
-                modesText = prefs.getString("modes", "Mode ranges unavailable").orEmpty(),
-                batteryHistory = runCatching { Gson().fromJson(prefs.getString("history", "[]"), Array<WidgetBatteryPoint>::class.java).toList() }.getOrDefault(emptyList()),
+                // The old formatted string could contain unsupported modes; wait for a filtered snapshot.
+                modeRanges = runCatching {
+                    Gson().fromJson(prefs.getString("mode_ranges_v2", "[]"), Array<RideModeRange>::class.java).toList()
+                }.getOrDefault(emptyList()),
                 chargeLabel = prefs.getString("charge_label", "Limit off").orEmpty(),
-                limitPercent = prefs.getInt("limit_percent", -1).takeIf { it in 50..100 }
+                charging = prefs.getBoolean("charging", false),
+                currentMode = prefs.getString("current_mode", null)
             )
         }
 
@@ -98,10 +115,13 @@ data class DashboardWidgetSnapshot(
                     putString(KEY_SYNC, snapshot.syncLabel)
                     putString(KEY_CONN, snapshot.connectionLabel)
                     putLong(KEY_UPDATED, snapshot.updatedAtMs)
-                    putString("modes", snapshot.modesText)
-                    putString("history", Gson().toJson(snapshot.batteryHistory))
+                    remove("modes")
+                    putString("mode_ranges_v2", Gson().toJson(snapshot.modeRanges))
+                    remove("history")
                     putString("charge_label", snapshot.chargeLabel)
-                    putInt("limit_percent", snapshot.limitPercent ?: -1)
+                    remove("limit_percent")
+                    putBoolean("charging", snapshot.charging)
+                    putString("current_mode", snapshot.currentMode)
                 }
                 .apply()
         }

@@ -10,7 +10,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument('apk', nargs='?', type=Path, default=ROOT / 'ScootScribe-v1.1.0-update.apk')
+parser.add_argument('apk', nargs='?', type=Path, default=ROOT / 'ScootScribe-v1.1.1-update.apk')
 parser.add_argument('--original', type=Path, default=ROOT / 'Ather Pro - v1.0.0.apk')
 parser.add_argument('--install', action='store_true', help='Install on a connected phone, preserving app data')
 parser.add_argument('--serial', help='ADB device serial, needed when multiple devices are connected')

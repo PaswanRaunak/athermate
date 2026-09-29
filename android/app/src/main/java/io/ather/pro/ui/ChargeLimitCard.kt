@@ -63,7 +63,7 @@ fun ChargeLimitCard(
             if (snapshot.status == ChargeLimitController.Status.ERROR) {
                 OutlinedButton(onClick = onRetry) { Text("Retry stop at ${snapshot.percent}%") }
             }
-            Text("This phone sends a stop request at or above the target and retries up to three times if fresh readings still show charging. Keep background monitoring and internet available. A force-stopped or offline app cannot enforce the limit.",
+            Text("Uses Pause at or above your target and retries until the scooter confirms it stopped. Keep this phone online with charging monitoring active.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (snapshot.enabled) Text("Turn the limit off before resuming a charge above ${snapshot.percent}%.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

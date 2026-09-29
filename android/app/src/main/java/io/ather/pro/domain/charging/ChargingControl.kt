@@ -9,10 +9,16 @@ import io.ather.pro.domain.model.ScooterTelemetry
  *
  * HTTP shadow acceptance only means Ather queued the desired state. Confirmation
  * requires charging telemetry (actual current flow / pause), not the HTTP 200.
- * Stale merged charging fields must not hide Resume after a successful stop.
+ * A desired-shadow action is an intent, never proof that the current stopped.
  */
 object ChargingControl {
     const val CONFIRM_TIMEOUT_MS: Long = 45_000L
+
+    fun isActiveStatus(status: String?): Boolean = status?.trim().equals("charging", ignoreCase = true)
+
+    fun isStoppedStatus(status: String?): Boolean = status?.trim()?.lowercase() in setOf(
+        "paused", "pause", "stopped", "stop", "completed", "complete", "disconnected", "idle", "not charging"
+    )
 
     data class View(
         val pluggedIn: Boolean,
@@ -41,30 +47,17 @@ object ChargingControl {
         ) {
             return true
         }
-        if (telemetry.remoteChargingAction.equals("stop", ignoreCase = true) &&
-            telemetry.chargerConnected != false &&
-            !status.contains("complete", ignoreCase = true)
-        ) {
-            // Stop while still on the cable keeps the plugged session controllable.
-            return true
-        }
         return false
     }
 
     /**
      * True only when telemetry indicates actual charging current / active status.
-     * Explicit pause / stop-echo wins over a stale charging=true boolean so Resume
-     * stays eligible after a confirmed stop.
+     * A requested shadow action never overrides actual charge readings.
      */
     fun isActivelyCharging(telemetry: ScooterTelemetry?): Boolean {
         if (telemetry == null) return false
         val status = telemetry.chargingStatus.orEmpty()
-        if (status.contains("pause", ignoreCase = true)) return false
-        if (telemetry.remoteChargingAction.equals("stop", ignoreCase = true) &&
-            !status.equals("Charging", ignoreCase = true)
-        ) {
-            return false
-        }
+        if (telemetry.chargerConnected == false || isStoppedStatus(status)) return false
         if (telemetry.charging == true) return true
         if (status.equals("Charging", ignoreCase = true)) return true
         return false
@@ -76,39 +69,32 @@ object ChargingControl {
         if (isActivelyCharging(telemetry)) return false
         val status = telemetry.chargingStatus.orEmpty()
         if (status.contains("pause", ignoreCase = true)) return true
-        if (telemetry.remoteChargingAction.equals("stop", ignoreCase = true)) return true
         // Plugged, not drawing current — treat as paused/idle-on-cable.
         return telemetry.chargerConnected == true
     }
 
     /**
-     * Merge charging-related fields so a stop/pause echo clears stale
-     * `charging=true` / `Charging` status left behind by sparse deltas.
+     * Merge sparse physical readings. Keep desired start/stop actions separate
+     * so an echoed request cannot falsely pause monitoring or confirm a stop.
      */
     fun mergeChargingFields(existing: ScooterTelemetry, delta: ScooterTelemetry): ScooterTelemetry {
         val remoteAction = delta.remoteChargingAction ?: existing.remoteChargingAction
         val status = delta.chargingStatus ?: existing.chargingStatus
-        val connected = delta.chargerConnected ?: existing.chargerConnected
+        val connected = delta.chargerConnected
+            ?: if (delta.charging == true || isActiveStatus(delta.chargingStatus)) true else existing.chargerConnected
 
         val pausedStatus = status?.contains("pause", ignoreCase = true) == true
-        val stopEcho = remoteAction.equals("stop", ignoreCase = true)
-        val startEcho = remoteAction.equals("start", ignoreCase = true)
-
         val charging = when {
             delta.chargerConnected == false -> false
             delta.charging != null -> delta.charging
             delta.chargingStatus != null -> {
                 when {
-                    pausedStatus -> false
-                    delta.chargingStatus.equals("Charging", ignoreCase = true) -> true
-                    else -> false
+                    isStoppedStatus(delta.chargingStatus) -> false
+                    isActiveStatus(delta.chargingStatus) -> true
+                    else -> existing.charging
                 }
             }
-            // Stop echo without a fresh charging block: do not keep stale active charge.
-            stopEcho && delta.remoteChargingAction != null -> false
             pausedStatus -> false
-            // Start echo alone is not actual current — keep prior until charging telemetry arrives.
-            startEcho && delta.remoteChargingAction != null -> existing.charging
             else -> existing.charging
         }
 
@@ -117,9 +103,6 @@ object ChargingControl {
             delta.chargingStatus != null -> delta.chargingStatus
             delta.charging == true -> "Charging"
             delta.charging == false -> if (connected == true) "Paused" else "Idle"
-            stopEcho && delta.remoteChargingAction != null &&
-                existing.chargingStatus.equals("Charging", ignoreCase = true) &&
-                charging != true -> "Paused"
             else -> status
         }
 
@@ -167,7 +150,7 @@ object ChargingControl {
             // During a successful stop Ather can briefly report chargerConnected=false
             // before settling on Paused. Actual current stopping is sufficient proof;
             // do not flash a false disconnect error during that transition.
-            "stop" -> !isActivelyCharging(telemetry)
+            "stop" -> ChargingEvidence.hasChargeReading(telemetry) && !isActivelyCharging(telemetry)
             "start" -> isActivelyCharging(telemetry)
             else -> false
         }

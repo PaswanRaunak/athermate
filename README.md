@@ -1,18 +1,21 @@
 # ScootScribe
 
 Independent Android scooter companion, updated from the recovered **Ather Pro**
-project (`io.ather.pro`, version **1.1.0**, version code **2**).
+project (`io.ather.pro`, version **1.1.1**, version code **3**).
 
-Install `ScootScribe-v1.1.0-update.apk` **over the existing app** to keep its saved
+Install `ScootScribe-v1.1.1-update.apk` **over the existing app** to keep its saved
 login. The signing certificate and encrypted session storage are unchanged.
-See [what changed and how to update](docs/UPDATE-1.1.0.md).
+See [what changed and how to update](docs/UPDATE-1.1.1.md).
 The project was restored on 2026-09-28 using the installed app's APK and surviving
 development snapshots and edits after the original Turbo RAM disk was lost.
 
-The app includes live battery/range data, explicit charge limits with bounded stop
-retries, battery/speed/distance/range graphs, qualified battery-health estimates,
-a scooter map, silent charging monitoring, scheduled idle checks, and a graph-and-mode
-home-screen widget. Material You colors and an adaptive themed icon are enabled.
+The app includes live battery/range data, explicit charge limits with rate-limited
+Pause retries, a battery history graph, qualified battery-health estimates, a scooter
+map, silent charging monitoring, scheduled idle checks, and a minimal home-screen
+widget with remaining kilometres per supported mode. The dashboard and widget
+use the same live range calculation. Material You colors and an adaptive themed
+icon are enabled. Ride graphs were removed from Home; additional statistics and
+trip history are under vehicle details.
 Recovered charger-map and analytics modules also remain in the source.
 
 ## Open and build
@@ -29,7 +32,7 @@ cd android
 ```
 
 APK output: `android/app/build/outputs/apk/release/app-release.apk`.
-The local update artifact is `ScootScribe-v1.1.0-update.apk`.
+The local update artifact is `ScootScribe-v1.1.1-update.apk`.
 
 ```sh
 # Compile, run unit tests, and check Android lint.
@@ -43,10 +46,12 @@ python3 scripts/test-migration.py
 python3 scripts/verify-update.py
 ```
 
-The update passes **103 unit tests**, **9 browser map checks**, and the populated
-SQLite migration check. Android lint has no errors. Package identity and signing
-certificate are verified against the supplied original APK. Live scooter commands
-and physical-device behavior were not exercised; the phone was unavailable to ADB.
+Version 1.1.1 passes **121 unit tests** and Android lint with no errors. The unchanged
+map and database migration previously passed **9 browser checks** and the populated
+SQLite migration check in 1.1.0. Package identity and signing certificate are
+verified against both the original APK and 1.1.0. Live scooter commands and the
+new widget layout have not been verified on a phone; ADB was disconnected at
+final validation.
 See [recovery details](docs/RECOVERY.md) for original provenance.
 
 ## Project layout

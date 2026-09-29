@@ -5,8 +5,8 @@ import io.ather.pro.domain.model.ScooterTelemetry
 /**
  * Phone-app charge-limit automation (not a firmware SoC cap).
  *
- * Issues at most one remote stop per armed session when fresh live
- * plugged-and-charging telemetry reaches the selected percentage.
+ * Uses the same stop command as Pause at or above the selected percentage.
+ * Waits for physical confirmation, with rate-limited retries while still charging.
  * Re-arms only after unplug (later charging session) or a deliberate
  * settings change. Never acts on stale or unplugged frames.
  */
@@ -18,8 +18,12 @@ object ChargeLimitController {
     const val DEFAULT_PERCENT = MAX_PERCENT
     const val CONFIRM_TIMEOUT_MS: Long = 45_000L
     const val FRESH_MAX_AGE_MS: Long = 30_000L
+    // Charging state changes less often than SoC in sparse telemetry. A recent
+    // active session is usable for cutoff; confirmation still needs a NEW physical reading.
+    const val ACTIVE_CHARGE_MAX_AGE_MS: Long = 120_000L
     const val AUTO_RETRY_DELAY_MS: Long = 60_000L
-    const val MAX_AUTO_ATTEMPTS = 3
+    const val FAST_RETRY_ATTEMPTS = 3
+    const val SLOW_RETRY_DELAY_MS: Long = 300_000L
 
     enum class Status {
         DISABLED,
@@ -129,6 +133,7 @@ object ChargeLimitController {
         val active = ChargingControl.isActivelyCharging(telemetry)
         val fresh = isFresh(lastUpdatedMs, nowMs, freshMaxAgeMs)
         val chargeFresh = isFresh(chargingUpdatedMs, nowMs, freshMaxAgeMs)
+        val activeChargeRecent = isFresh(chargingUpdatedMs, nowMs, ACTIVE_CHARGE_MAX_AGE_MS)
         val soc = telemetry?.batterySoc?.takeIf { it.isFinite() && it in 0.0..100.0 }
 
         // Pending confirmation / timeout first.
@@ -138,7 +143,7 @@ object ChargeLimitController {
                 return Decision.StateOnly(
                     state.copy(
                         status = Status.ERROR,
-                        message = if (state.attempts < MAX_AUTO_ATTEMPTS) "No stop confirmation yet. A fresh charging reading will trigger a bounded retry." else "Stop not confirmed after $MAX_AUTO_ATTEMPTS attempts. Check the scooter and tap Retry.",
+                        message = "Stop not confirmed. Will retry if fresh readings still show charging above ${state.percent}%.",
                         pendingSinceMs = null
                     )
                 )
@@ -161,7 +166,7 @@ object ChargeLimitController {
         // If the rider resumes while still at/above the selected limit, enforce the
         // limit again. This is one request per charging restart, not per telemetry frame.
         if (state.status == Status.CONFIRMED) {
-            if (fresh && active && soc != null) {
+            if (fresh && activeChargeRecent && plugged && active && soc != null) {
                 return if (soc >= state.percent) {
                     Decision.RequestStop(
                         state.copy(
@@ -198,15 +203,22 @@ object ChargeLimitController {
             return Decision.None
         }
 
-        // Retry only with fresh charge evidence, a cooldown and a persisted attempt budget.
+        // A temporary outage must not permanently exhaust the automatic limit.
+        // Retry once per minute initially, then at most once every five minutes.
         if (state.status == Status.ERROR) {
-            if (fresh && active && plugged && soc != null && soc >= state.percent &&
-                state.attempts < MAX_AUTO_ATTEMPTS && state.lastAttemptMs != null &&
-                nowMs - state.lastAttemptMs >= AUTO_RETRY_DELAY_MS) {
+            if (state.attempts > 0 && state.lastAttemptMs != null && telemetry != null &&
+                chargeFresh && chargingUpdatedMs != null && chargingUpdatedMs > state.lastAttemptMs &&
+                ChargingEvidence.hasChargeReading(telemetry) && !active) {
+                return Decision.StateOnly(state.copy(status = Status.CONFIRMED, armed = false,
+                    pendingSinceMs = null, message = "Charging stopped. Limit ${state.percent}% remains enabled."))
+            }
+            val retryDelay = if (state.attempts < FAST_RETRY_ATTEMPTS) AUTO_RETRY_DELAY_MS else SLOW_RETRY_DELAY_MS
+            if (fresh && activeChargeRecent && active && plugged && soc != null && soc >= state.percent &&
+                state.lastAttemptMs != null && nowMs - state.lastAttemptMs >= retryDelay) {
                 return Decision.RequestStop(state.copy(
                     status = Status.PENDING, armed = false, pendingSinceMs = nowMs,
                     attempts = state.attempts + 1, lastAttemptMs = nowMs,
-                    message = "Still at/above ${state.percent}%. Retrying stop (${state.attempts + 1}/$MAX_AUTO_ATTEMPTS)…"
+                    message = "Still at/above ${state.percent}%. Sending pause again…"
                 ))
             }
             if (telemetry != null && chargeFresh && !plugged && !state.armed) {
@@ -240,7 +252,7 @@ object ChargeLimitController {
         }
 
         // Never act on stale or incomplete live frames.
-        if (!fresh || soc == null || !active) {
+        if (!fresh || !activeChargeRecent || soc == null || !active) {
             return if (state.status != Status.MONITORING) {
                 Decision.StateOnly(
                     state.copy(status = Status.MONITORING, pendingSinceMs = null)
