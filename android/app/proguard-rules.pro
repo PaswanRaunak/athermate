@@ -1,2 +1,2 @@
-# Ather Pro proguard rules
+# Athr+ proguard rules
 -keep class io.ather.pro.data.model.** { *; }

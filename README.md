@@ -1,13 +1,9 @@
-# ScootScribe
+# Athr+
 
-Independent Android scooter companion, updated from the recovered **Ather Pro**
-project (`io.ather.pro`, version **1.1.1**, version code **3**).
+Independent Android scooter companion (`io.ather.pro`, version **1.1.2**, version code **4**).
 
-Install `ScootScribe-v1.1.1-update.apk` **over the existing app** to keep its saved
-login. The signing certificate and encrypted session storage are unchanged.
-See [what changed and how to update](docs/UPDATE-1.1.1.md).
-The project was restored on 2026-09-28 using the installed app's APK and surviving
-development snapshots and edits after the original Turbo RAM disk was lost.
+Install `Athr+-v1.1.2-release.apk` over existing app installations to keep saved data.
+The signing certificate and encrypted session storage are preserved.
 
 The app includes live battery/range data, explicit charge limits with rate-limited
 Pause retries, a battery history graph, qualified battery-health estimates, a scooter

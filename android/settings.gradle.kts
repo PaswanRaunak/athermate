@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "atherpro"
+rootProject.name = "athr-plus"
 include(":app")

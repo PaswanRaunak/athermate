@@ -48,7 +48,7 @@ fun StreetMapView(modifier: Modifier = Modifier, onReady: (WebView?) -> Unit) {
                 useWideViewPort = true
                 cacheMode = WebSettings.LOAD_DEFAULT
                 mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
-                userAgentString = "AtherPro/${BuildConfig.VERSION_NAME} $userAgentString"
+                userAgentString = "Athr+/${BuildConfig.VERSION_NAME} $userAgentString"
             }
             setOnTouchListener { view, event ->
                 when (event.actionMasked) {
