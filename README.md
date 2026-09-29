@@ -12,13 +12,13 @@
 
 ## Why This Project Exists
 
-This application was created out of frustration with arbitrary device restrictions:
+I built **Athr+** because the official app became frustrating to use:
 
-- **Unlocked Bootloader & Custom ROM Blocks**: The official Ather app was restricted on devices with unlocked bootloaders, disappearing from the Google Play Store or failing device integrity checks.
-- **Developer Options Restrictions**: Devices with Developer Options enabled are constantly blocked or prompted with intrusive "Turn off developer options" warnings, preventing developers and power users from accessing their own vehicle companion app.
-- **Paid Pro Pack Frustrations**: Despite paying for an active **Ather Pro** subscription, the official companion app delivered a degraded, restrictive user experience on customized devices.
+- **Missing from Play Store**: If your phone has an unlocked bootloader or runs a custom ROM, the official app doesn't show up in the Google Play Store.
+- **Developer Options Block**: If you keep Developer Options enabled, the app constantly stops you with "Turn off developer options" warnings.
+- **Paid for Pro, Couldn't Use It**: Even after paying for the official Ather Pro pack, the app gave a frustrating experience with artificial device blocks.
 
-**Athr+** was built and open-sourced to give vehicle owners complete freedom, reliability, and full access to their scooter's telemetry, charging limits, and trip history without anti-power-user barriers.
+So I created and open-sourced **Athr+** to give everyone full, unrestricted access to their own scooter—live battery status, smart charging limits, home screen widgets, and ride history—without any annoying device blocks.
 
 ---
 
