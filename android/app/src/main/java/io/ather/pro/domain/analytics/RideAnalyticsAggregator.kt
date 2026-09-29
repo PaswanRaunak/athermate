@@ -19,8 +19,8 @@ object RideAnalyticsAggregator {
         val sourceLabel = when {
             trips.isEmpty() -> "No ride history"
             trips.any { it.isOfficialRide } && trips.any { !it.isOfficialRide } ->
-                "Room + official Ather rides"
-            trips.all { it.isOfficialRide } -> "Official Ather rides"
+                "Room + synced cloud rides"
+            trips.all { it.isOfficialRide } -> "Synced cloud rides"
             else -> "Room trip history"
         }
 

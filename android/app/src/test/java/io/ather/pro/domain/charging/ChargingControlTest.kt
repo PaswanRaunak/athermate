@@ -37,7 +37,7 @@ class ChargingControlTest {
         // HTTP ACCEPTED must not flip UI to paused yet.
         val accepted = stopSending.copy(
             phase = RemoteCommandPhase.ACCEPTED,
-            message = "Ather accepted the request; waiting for scooter confirmation."
+            message = "Request accepted; waiting for scooter confirmation."
         )
         val stillCharging = ChargingControl.resolveView(charging, accepted, t0 + 1_000L)
         assertTrue(stillCharging.commandPending)
@@ -64,7 +64,7 @@ class ChargingControlTest {
         val startAccepted = RemoteChargingCommand(
             action = "start",
             phase = RemoteCommandPhase.ACCEPTED,
-            message = "Ather accepted the request; waiting for scooter confirmation.",
+            message = "Request accepted; waiting for scooter confirmation.",
             requestedAt = t0 + 3_000L
         )
         val pendingStart = ChargingControl.resolveView(pausedTelem, startAccepted, t0 + 3_500L)
@@ -129,7 +129,7 @@ class ChargingControlTest {
         val rejected = RemoteChargingCommand(
             action = "start",
             phase = RemoteCommandPhase.ERROR,
-            message = "Ather rejected the charging request.",
+            message = "The charging request was rejected.",
             requestedAt = t0
         )
         val view = ChargingControl.resolveView(paused, rejected, t0 + 1_000L)
@@ -149,7 +149,7 @@ class ChargingControlTest {
         val acceptedStop = RemoteChargingCommand(
             action = "stop",
             phase = RemoteCommandPhase.ACCEPTED,
-            message = "Ather accepted the request; waiting for scooter confirmation.",
+            message = "Request accepted; waiting for scooter confirmation.",
             requestedAt = t0
         )
         val timedOut = ChargingControl.advanceCommand(

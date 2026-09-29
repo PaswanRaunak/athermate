@@ -242,7 +242,7 @@ private fun ChargingActions(
                 RemoteCommandPhase.SENDING -> {
                     Spacer(modifier = Modifier.height(10.dp))
                     Text(
-                        text = view.message ?: "Dispatching request to Ather…",
+                        text = view.message ?: "Dispatching request to server…",
                         color = colorScheme.tertiary,
                         style = MaterialTheme.typography.labelSmall
                     )
@@ -251,7 +251,7 @@ private fun ChargingActions(
                     Spacer(modifier = Modifier.height(10.dp))
                     Text(
                         text = view.message
-                            ?: "Accepted by Ather — waiting for scooter telemetry confirmation…",
+                            ?: "Request accepted — waiting for scooter telemetry confirmation…",
                         color = colorScheme.tertiary,
                         style = MaterialTheme.typography.labelSmall
                     )

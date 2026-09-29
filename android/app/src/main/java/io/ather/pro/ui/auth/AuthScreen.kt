@@ -56,7 +56,7 @@ fun AuthScreen(
         )
         Text(
             text = when (state.step) {
-                AuthStep.PHONE -> "Sign in with your Ather mobile number"
+                AuthStep.PHONE -> "Sign in with your registered mobile number"
                 AuthStep.OTP -> "Enter the OTP sent by SMS"
                 AuthStep.SCOOTER_SELECT -> "Select your scooter"
                 AuthStep.READY -> "Signed in"
@@ -184,7 +184,7 @@ private fun ScooterStep(
 ) {
     if (scooters.isEmpty() && !isLoading) {
         Text(
-            text = "No scooters were found on this Ather account. Pull them again, or start over with another number.",
+            text = "No scooters were found on this account. Pull them again, or start over with another number.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

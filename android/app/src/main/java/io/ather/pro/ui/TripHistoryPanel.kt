@@ -494,7 +494,7 @@ private fun TripRecordCard(
                     Text(
                         text = when {
                             kmPerUnit != null && trip.isOfficialRide ->
-                                String.format(Locale.US, "%.2f km/unit · Ather ride", kmPerUnit)
+                                String.format(Locale.US, "%.2f km/unit · Synced ride", kmPerUnit)
                             kmPerUnit != null ->
                                 String.format(
                                     Locale.US,
@@ -502,7 +502,7 @@ private fun TripRecordCard(
                                     kmPerUnit,
                                     trip.socConsumed
                                 )
-                            trip.isOfficialRide -> "km/unit unavailable · Ather ride"
+                            trip.isOfficialRide -> "km/unit unavailable · Synced ride"
                             else ->
                                 String.format(Locale.US, "km/unit unavailable (-%.1f%% SoC)", trip.socConsumed)
                         },

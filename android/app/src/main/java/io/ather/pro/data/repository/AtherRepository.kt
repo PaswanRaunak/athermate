@@ -206,7 +206,7 @@ class AtherRepository(
                 errorMessage = message.ifBlank { "Session expired. Please sign in again." }
             )
         }
-        _authenticationRequired.value = message.ifBlank { "Your Ather session has expired." }
+        _authenticationRequired.value = message.ifBlank { "Your session has expired." }
     }
 
     private fun isAuthFailureMessage(message: String): Boolean {
@@ -529,7 +529,7 @@ class AtherRepository(
                             else current.copy(
                                 status = ChargeLimitController.Status.ERROR,
                                 message = error.message
-                                    ?: "Ather rejected the automatic stop. Tap Retry limit.",
+                                    ?: "Automatic stop rejected. Tap Retry limit.",
                                 pendingSinceMs = null
                             )
                         )

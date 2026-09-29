@@ -152,7 +152,7 @@ class AuthViewModel(
                                 scooters = scooters,
                                 isLoading = false,
                                 errorMessage = if (scooters.isEmpty()) {
-                                    "No scooters linked on this Ather account yet."
+                                    "No scooters linked on this account yet."
                                 } else {
                                     null
                                 }

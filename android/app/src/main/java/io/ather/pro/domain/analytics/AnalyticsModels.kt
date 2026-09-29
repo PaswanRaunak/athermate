@@ -136,14 +136,14 @@ data class VehicleHealthReport(
     val wearAndTear: List<VehicleWearItem>,
     val resale: VehicleHealthResale?,
     val meta: VehicleHealthMeta?,
-    val sourceLabel: String = "Ather vehicle-health report (not BMS SoH)"
+    val sourceLabel: String = "Vehicle-health scorecard (not BMS SoH)"
 )
 
 sealed class ScorecardState {
     data object Loading : ScorecardState()
-    /** Always render a card; [reason] explains why Ather did not supply a usable report. */
+    /** Always render a card; [reason] explains why server did not supply a usable report. */
     data class Unavailable(
-        val reason: String = "Ather supplied no vehicle-health report."
+        val reason: String = "No vehicle-health report available."
     ) : ScorecardState()
     data class Available(val report: VehicleHealthReport) : ScorecardState()
     data class Error(val message: String) : ScorecardState()

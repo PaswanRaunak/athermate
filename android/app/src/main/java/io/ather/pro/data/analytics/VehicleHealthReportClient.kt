@@ -24,7 +24,7 @@ class VehicleHealthReportClient(
         if (token.isBlank() || scooterUuid.isBlank()) {
             callback(
                 ScorecardState.Unavailable(
-                    "Sign-in token or scooter UUID missing — cannot fetch Ather scorecard."
+                    "Sign-in token or scooter UUID missing — cannot fetch scorecard."
                 )
             )
             return
@@ -49,7 +49,7 @@ class VehicleHealthReportClient(
                         404 -> {
                             callback(
                                 ScorecardState.Unavailable(
-                                    "Ather supplied no report (HTTP 404). This is not battery SoH."
+                                    "No scorecard supplied (HTTP 404). This is not battery SoH."
                                 )
                             )
                             return
@@ -59,7 +59,7 @@ class VehicleHealthReportClient(
                             if (body.isBlank()) {
                                 callback(
                                     ScorecardState.Unavailable(
-                                        "Ather returned an empty vehicle-health body. This is not battery SoH."
+                                        "Empty vehicle-health body returned. This is not battery SoH."
                                     )
                                 )
                                 return
@@ -68,7 +68,7 @@ class VehicleHealthReportClient(
                             callback(
                                 if (report != null) ScorecardState.Available(report)
                                 else ScorecardState.Unavailable(
-                                    "Ather response could not be parsed as a vehicle-health report. This is not battery SoH."
+                                    "Response could not be parsed as a vehicle-health report. This is not battery SoH."
                                 )
                             )
                         }
@@ -83,18 +83,18 @@ class VehicleHealthReportClient(
     internal fun parseBodyOrUnavailable(httpCode: Int, body: String?): ScorecardState {
         if (httpCode == 404) {
             return ScorecardState.Unavailable(
-                "Ather supplied no report (HTTP 404). This is not battery SoH."
+                "No scorecard supplied (HTTP 404). This is not battery SoH."
             )
         }
         if (httpCode !in 200..299) return ScorecardState.Error("HTTP $httpCode")
         if (body.isNullOrBlank()) {
             return ScorecardState.Unavailable(
-                "Ather returned an empty vehicle-health body. This is not battery SoH."
+                "Empty vehicle-health body returned. This is not battery SoH."
             )
         }
         val report = VehicleHealthReportParser.parse(body)
             ?: return ScorecardState.Unavailable(
-                "Ather response could not be parsed as a vehicle-health report. This is not battery SoH."
+                "Response could not be parsed as a vehicle-health report. This is not battery SoH."
             )
         return ScorecardState.Available(report)
     }

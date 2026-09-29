@@ -68,7 +68,7 @@ fun AnalyticsScreen(
             style = MaterialTheme.typography.labelSmall
         )
         Text(
-            text = "Observed rides & Ather scorecard",
+            text = "Observed rides & vehicle scorecard",
             color = colorScheme.onSurface,
             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
         )

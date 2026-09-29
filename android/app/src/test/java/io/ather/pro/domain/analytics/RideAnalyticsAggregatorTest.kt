@@ -59,7 +59,7 @@ class RideAnalyticsAggregatorTest {
         assertEquals(23.3, totals.averageEfficiencyWhPerKm!!, 0.05)
         assertEquals(1, totals.officialTripCount)
         assertEquals(1, totals.localTripCount)
-        assertEquals("Room + official Ather rides", totals.sourceLabel)
+        assertEquals("Room + synced cloud rides", totals.sourceLabel)
     }
 
     @Test

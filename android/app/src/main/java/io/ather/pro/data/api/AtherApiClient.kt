@@ -250,7 +250,7 @@ class AtherApiClient {
         override fun onResponse(call: Call, response: Response) {
             response.use {
                 if (it.isSuccessful) callback(Result.success(Unit))
-                else callback(Result.failure(IOException("Ather command HTTP ${it.code}")))
+                else callback(Result.failure(IOException("Command failed HTTP ${it.code}")))
             }
         }
     }

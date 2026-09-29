@@ -117,13 +117,13 @@ class RemoteChargingDispatcher(
             onSuccess = {
                 current.copy(
                     phase = RemoteCommandPhase.ACCEPTED,
-                    message = "Ather accepted the request; waiting for scooter confirmation."
+                    message = "Request accepted; waiting for scooter confirmation."
                 )
             },
             onFailure = { error ->
                 current.copy(
                     phase = RemoteCommandPhase.ERROR,
-                    message = error.message ?: "Ather rejected the charging request."
+                    message = error.message ?: "The charging request was rejected."
                 )
             }
         )

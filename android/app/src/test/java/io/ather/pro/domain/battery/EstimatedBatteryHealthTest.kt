@@ -64,7 +64,7 @@ class EstimatedBatteryHealthTest {
         assertEquals(6, est.sampleCount)
         assertTrue(est.percent in 80.0..95.0)
         assertTrue(est.confidenceLabel.contains("confidence"))
-        assertTrue(est.methodLabel.contains("Ather ride efficiency"))
+        assertTrue(est.methodLabel.contains("Cloud ride efficiency"))
     }
 
     @Test

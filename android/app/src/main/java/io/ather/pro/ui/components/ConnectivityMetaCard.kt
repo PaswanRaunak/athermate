@@ -93,7 +93,7 @@ fun ConnectivityMetaCard(
             }
             Spacer(Modifier.height(6.dp))
             Text(
-                text = "Shown only when Ather reports the field",
+                text = "Shown only when vehicle reports the field",
                 color = colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp)
             )

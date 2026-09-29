@@ -95,10 +95,10 @@ internal fun SettingsScreen(
         item {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(session.displayName?.takeIf(String::isNotBlank) ?: "Your Ather account", style = MaterialTheme.typography.titleMedium)
+                    Text(session.displayName?.takeIf(String::isNotBlank) ?: "Your Athr+ account", style = MaterialTheme.typography.titleMedium)
                     Text("Your sign-in is stored on this phone and kept when updating Athr+.", style = MaterialTheme.typography.bodySmall)
                     OutlinedButton(onClick = { signOut = true }) { Text("Sign out") }
-                    Text("Independent companion app. Not affiliated with or endorsed by Ather Energy.", style = MaterialTheme.typography.bodySmall)
+                    Text("Independent companion app. Designed for smart EV scooters.", style = MaterialTheme.typography.bodySmall)
                     Text("Athr+ ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.labelMedium)
                 }
             }

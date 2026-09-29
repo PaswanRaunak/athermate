@@ -13,12 +13,12 @@ enum class ScooterModel(
     val usableCapacityWh: Double,
     val referenceCycleRangeKm: Double
 ) {
-    ATHER_450X_3_7("Ather 450X (3.7 kWh)", 3700.0, 3240.0, 85.0),
-    ATHER_450X_2_9("Ather 450X (2.9 kWh)", 2900.0, 2610.0, 70.0),
-    ATHER_APEX("Ather 450 Apex (3.7 kWh)", 3700.0, 3240.0, 85.0),
-    ATHER_RIZTA_3_7("Ather Rizta (3.7 kWh)", 3700.0, 3240.0, 100.0),
-    ATHER_RIZTA_2_9("Ather Rizta (2.9 kWh)", 2900.0, 2610.0, 80.0),
-    ATHER_450S("Ather 450S (2.9 kWh)", 2900.0, 2610.0, 70.0)
+    ATHER_450X_3_7("450X (3.7 kWh)", 3700.0, 3240.0, 85.0),
+    ATHER_450X_2_9("450X (2.9 kWh)", 2900.0, 2610.0, 70.0),
+    ATHER_APEX("450 Apex (3.7 kWh)", 3700.0, 3240.0, 85.0),
+    ATHER_RIZTA_3_7("Rizta (3.7 kWh)", 3700.0, 3240.0, 100.0),
+    ATHER_RIZTA_2_9("Rizta (2.9 kWh)", 2900.0, 2610.0, 80.0),
+    ATHER_450S("450S (2.9 kWh)", 2900.0, 2610.0, 70.0)
 }
 
 data class VehicleProfile(
@@ -52,12 +52,12 @@ data class VehicleProfile(
     val displayName: String
         get() {
             val base = when (modelType?.lowercase()) {
-                "450x" -> "Ather 450X"
-                "450s" -> "Ather 450S"
-                "apex", "450 apex" -> "Ather 450 Apex"
-                "rizta" -> "Ather Rizta"
-                else -> modelType?.takeIf(String::isNotBlank)?.let { "Ather ${it.uppercase()}" }
-                    ?: "Ather scooter"
+                "450x" -> "450X"
+                "450s" -> "450S"
+                "apex", "450 apex" -> "450 Apex"
+                "rizta" -> "Rizta"
+                else -> modelType?.takeIf(String::isNotBlank)?.let { it.uppercase() }
+                    ?: "Scooter"
             }
             val range = when (modelCode?.lowercase()) {
                 "xhr" -> "HR"
@@ -357,7 +357,7 @@ data class ScooterDashboardState(
         val modeEff = activeMode?.let { modeRanges[it]?.derivedWhPerKm }
             ?: modeRanges.values.firstOrNull { it.derivedWhPerKm != null }?.derivedWhPerKm
         val (eff, source) = when {
-            modeEff != null && modeEff > 0.0 -> modeEff to "Mode range (Ather)"
+            modeEff != null && modeEff > 0.0 -> modeEff to "Mode range (Cloud)"
             else -> {
                 val tripEff = recentTrips.firstOrNull { it.efficiencyWhPerKm > 0.0 }?.efficiencyWhPerKm
                 if (tripEff != null) tripEff to "Last observed trip" else null to null

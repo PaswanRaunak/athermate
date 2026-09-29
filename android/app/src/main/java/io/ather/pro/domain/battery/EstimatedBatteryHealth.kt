@@ -110,7 +110,7 @@ object EstimatedBatteryHealth {
             percent = soh,
             sampleCount = samples.size,
             confidenceLabel = "$confidence confidence",
-            methodLabel = "Estimate: Ather ride efficiency × local odometer distance ÷ measured SoC drop; ${referenceTrips.size} reference rides, ${samples.size} local samples"
+            methodLabel = "Estimate: Cloud ride efficiency × local odometer distance ÷ measured SoC drop; ${referenceTrips.size} reference rides, ${samples.size} local samples"
         )
     }
 }

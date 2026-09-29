@@ -993,7 +993,7 @@ private fun openFindMyNavigation(context: Context, lat: Double, lng: Double): Bo
     }
     val geoIntent = Intent(
         Intent.ACTION_VIEW,
-        Uri.parse("geo:$lat,$lng?q=$lat,$lng(Ather)")
+        Uri.parse("geo:$lat,$lng?q=$lat,$lng(Scooter)")
     )
     val webIntent = Intent(
         Intent.ACTION_VIEW,
