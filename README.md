@@ -26,7 +26,7 @@ So I created and open-sourced **Athr+** to give everyone full, unrestricted acce
 
 | Live Dashboard | Smart Charge Limit | Live Heading Map |
 | :---: | :---: | :---: |
-| <img src="docs/assets/screenshot_dashboard.png" width="240" alt="Dashboard Screen" /> | <img src="docs/assets/screenshot_charging.png" width="240" alt="Charging Limit Screen" /> | <img src="docs/assets/screenshot_map.png" width="240" alt="Interactive Map Screen" /> |
+| <img src="docs/assets/screenshot_dashboard.png" width="240" alt="Dashboard Screen" /> | <img src="docs/assets/screenshot_charging.png" width="240" alt="Charging Limit Screen" /> | <img src="docs/assets/screenshot_map.jpg" width="240" alt="Interactive Map Screen" /> |
 
 <p align="center">
   <b>Material You 4×4 Live Home-Screen Widget</b><br/>
