@@ -1,7 +1,5 @@
 # Athr+
 
-Independent Android scooter companion (`io.ather.pro`, version **1.1.2**, version code **4**).
-
 Install `Athr+-v1.1.2-release.apk` over existing app installations to keep saved data.
 The signing certificate and encrypted session storage are preserved.
 
