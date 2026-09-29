@@ -20,3 +20,4 @@ ather_session.json
 *session-seed*.json
 *.bundle
 *.tar.gz
+*.sha256
