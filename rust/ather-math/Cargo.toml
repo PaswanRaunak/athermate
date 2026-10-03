@@ -1,0 +1,17 @@
+[package]
+name = "ather-math"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "ather_math"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+jni = "=0.21.1"
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

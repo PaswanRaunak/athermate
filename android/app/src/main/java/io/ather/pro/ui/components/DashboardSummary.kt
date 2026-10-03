@@ -1,6 +1,9 @@
 package io.ather.pro.ui.components
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -24,11 +27,12 @@ internal fun number(value: Double?, decimals: Int = 0): String =
 fun FreshnessLabel(state: ScooterDashboardState, modifier: Modifier = Modifier) {
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(state.lastUpdated) { while (true) { now = System.currentTimeMillis(); delay(15_000) } }
-    val age = state.lastUpdated?.let { ((now - it).coerceAtLeast(0) / 1000) }
+    val readingAt = state.batteryReportedAt ?: state.telemetry?.sourceTimestampMs ?: state.batteryUpdatedAt ?: state.lastUpdated
+    val age = readingAt?.let { ((now - it).coerceAtLeast(0) / 1000) }
     val fresh = state.connection == ConnectionStatus.CONNECTED && age != null && age < 60
     val text = when {
         fresh -> "Live · Updated ${age}s ago"
-        age != null -> "Last received ${DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(state.lastUpdated!!))} · ${if (state.connection == ConnectionStatus.CONNECTED) "Waiting for scooter" else "Reconnecting"}"
+        age != null -> "Last received ${DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(readingAt!!))} · ${if (state.connection == ConnectionStatus.CONNECTED) "Waiting for scooter" else "Reconnecting"}"
         state.connection == ConnectionStatus.CONNECTING -> "Connecting to your scooter…"
         else -> "Waiting for scooter data · Tap refresh to retry"
     }
@@ -40,25 +44,58 @@ fun FreshnessLabel(state: ScooterDashboardState, modifier: Modifier = Modifier) 
 fun EnergySummaryCard(state: ScooterDashboardState) {
     val soc = state.telemetry?.batterySoc?.takeIf { it.isFinite() && it in 0.0..100.0 }
     val range = RangeEstimator.current(state.telemetry, state.settings.selectedModel)
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-        shape = RoundedCornerShape(26.dp), modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Column(Modifier.weight(1f)) {
-                    Text("Battery", style = MaterialTheme.typography.labelLarge)
-                    Text("${number(soc)}%", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold)
+    val charging = io.ather.pro.domain.charging.ChargingControl.isActivelyCharging(state.telemetry)
+    val green = androidx.compose.ui.graphics.Color(0xFF00E89D)
+    val shape = RoundedCornerShape(28.dp)
+    BoxWithConstraints(Modifier.fillMaxWidth()
+        .clip(shape)
+        .background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(
+            androidx.compose.ui.graphics.Color(0xFF233038), androidx.compose.ui.graphics.Color(0xFF10191D))))
+        .border(1.dp, androidx.compose.ui.graphics.Color.White.copy(alpha = 0.16f), shape)) {
+        val wide = maxWidth >= 540.dp
+        val batteryTextStyle = if (maxWidth < 350.dp) MaterialTheme.typography.displayMedium else MaterialTheme.typography.displayLarge
+        Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(state.vehicleProfile?.displayName ?: state.settings.selectedModel.displayName.uppercase(),
+                color = androidx.compose.ui.graphics.Color(0xFFBBC8CD),
+                style = MaterialTheme.typography.titleMedium, maxLines = 1)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(if (wide) 0.45f else 0.55f),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Surface(color = if (charging) green.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(50), border = androidx.compose.foundation.BorderStroke(
+                            1.dp, if (charging) green.copy(alpha = 0.6f) else MaterialTheme.colorScheme.outline)) {
+                        Text(if (charging) "ϟ  Charging" else state.telemetry?.chargingStatus ?: "Scooter status",
+                            Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = if (charging) green else MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Text("${number(soc)}%", style = batteryTextStyle,
+                        fontWeight = FontWeight.Black, maxLines = 1,
+                        color = androidx.compose.ui.graphics.Color.White)
+                    Text("${number(range)} km range", style = MaterialTheme.typography.titleMedium,
+                        color = androidx.compose.ui.graphics.Color.White)
                 }
-                Column(Modifier.weight(1f), horizontalAlignment = Alignment.End) {
-                    Text("Available range", style = MaterialTheme.typography.labelLarge)
-                    Text("${number(range)} km", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-                    state.telemetry?.mode?.let { Text(it, style = MaterialTheme.typography.labelMedium) }
+                Box(Modifier.weight(if (wide) 0.55f else 0.45f).height(if (wide) 220.dp else 170.dp),
+                    contentAlignment = Alignment.Center) {
+                    if (charging) Box(Modifier.fillMaxSize().background(
+                        androidx.compose.ui.graphics.Brush.radialGradient(listOf(
+                            green.copy(alpha = 0.18f), androidx.compose.ui.graphics.Color.Transparent))))
+                    androidx.compose.foundation.Image(
+                        painter = androidx.compose.ui.res.painterResource(io.ather.pro.R.drawable.scooter_hero),
+                        contentDescription = null, modifier = Modifier.fillMaxSize(),
+                        contentScale = androidx.compose.ui.layout.ContentScale.Fit)
                 }
             }
             LinearProgressIndicator(progress = { ((soc ?: 0.0) / 100).toFloat() },
-                modifier = Modifier.fillMaxWidth().height(8.dp), color = MaterialTheme.colorScheme.primary)
-            Text(state.telemetry?.chargingStatus?.takeIf(String::isNotBlank)
-                ?: state.telemetry?.vehicleState?.takeIf(String::isNotBlank) ?: "Waiting for vehicle status",
-                style = MaterialTheme.typography.bodyMedium)
+                modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(50)),
+                color = green, trackColor = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.12f))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(soc?.let { "${number(it, 2)}% measured" } ?: "Waiting for battery reading",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.labelMedium)
+                state.telemetry?.mode?.let { Text(it, color = green,
+                    style = MaterialTheme.typography.labelMedium) }
+            }
         }
     }
 }
@@ -103,7 +140,7 @@ fun ChargeEstimateCard(state: ScooterDashboardState, target: Int) {
                 Text("Waiting for a battery reading to estimate your charge.", style = MaterialTheme.typography.bodyMedium)
             } else {
                 val soc = state.telemetry?.batterySoc ?: 0.0
-                Text("${number(soc)}% now · ${number(estimate.remainingPercent)}% to go", style = MaterialTheme.typography.bodyMedium)
+                Text("${number(soc)}% reported · ${number(estimate.remainingPercent)}% to go", style = MaterialTheme.typography.bodyMedium)
                 LinearProgressIndicator(progress = { (soc / target.coerceAtLeast(1)).toFloat().coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     EstimateValue("Energy", "${number(estimate.energyKWh, 2)} kWh")

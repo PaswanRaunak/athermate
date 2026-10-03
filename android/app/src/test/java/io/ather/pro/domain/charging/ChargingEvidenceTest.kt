@@ -75,4 +75,21 @@ class ChargingEvidenceTest {
         assertFalse(ChargingControl.isActivelyCharging(merged))
         assertFalse(ChargingControl.isPluggedIn(merged))
     }
+
+    @Test fun repeatedCloudSnapshotDoesNotRefreshCachedBattery() {
+        val snapshot = active.copy(sourceTimestampMs = 1_000)
+        val first = ChargingEvidence().observe(snapshot, 2_000, snapshot = true)
+        val repeated = first.observe(snapshot, 40_000, snapshot = true)
+        assertEquals(2_000L, repeated.batteryAt)
+        assertEquals(1_000L, repeated.chargingAt)
+        assertEquals(ChargeLimitController.Decision.None, ChargeLimitController.onTelemetry(
+            limit, snapshot, repeated.batteryAt, 40_000, chargingUpdatedMs = repeated.chargingAt))
+    }
+
+    @Test fun staleOrUndatedInitialSnapshotCannotArmFreshEvidence() {
+        assertNull(ChargingEvidence().observe(active, 10_000, snapshot = true).batteryAt)
+        val stale = ChargingEvidence().observe(active.copy(sourceTimestampMs = 1_000), 200_000, snapshot = true)
+        assertNull(stale.batteryAt)
+        assertNull(stale.chargingAt)
+    }
 }

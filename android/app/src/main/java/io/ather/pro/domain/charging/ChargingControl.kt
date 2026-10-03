@@ -34,9 +34,10 @@ object ChargingControl {
 
     fun isPluggedIn(telemetry: ScooterTelemetry?): Boolean {
         if (telemetry == null) return false
+        // Drawing current implies plugged in, even when the connector flag lags.
+        if (isActivelyCharging(telemetry)) return true
         if (telemetry.chargerConnected == false) return false
         if (telemetry.chargerConnected == true) return true
-        if (isActivelyCharging(telemetry)) return true
         val status = telemetry.chargingStatus.orEmpty()
         if (status.contains("pause", ignoreCase = true)) return true
         if (status.equals("Charging", ignoreCase = true)) return true
@@ -57,9 +58,9 @@ object ChargingControl {
     fun isActivelyCharging(telemetry: ScooterTelemetry?): Boolean {
         if (telemetry == null) return false
         val status = telemetry.chargingStatus.orEmpty()
-        if (telemetry.chargerConnected == false || isStoppedStatus(status)) return false
-        if (telemetry.charging == true) return true
-        if (status.equals("Charging", ignoreCase = true)) return true
+        if (isStoppedStatus(status)) return false
+        if (isActiveStatus(status) || telemetry.charging == true) return true
+        if (telemetry.chargerConnected == false || telemetry.charging == false) return false
         return false
     }
 
@@ -85,23 +86,18 @@ object ChargingControl {
 
         val pausedStatus = status?.contains("pause", ignoreCase = true) == true
         val charging = when {
-            delta.chargerConnected == false -> false
+            isStoppedStatus(delta.chargingStatus) -> false
+            isActiveStatus(delta.chargingStatus) || delta.charging == true -> true
             delta.charging != null -> delta.charging
-            delta.chargingStatus != null -> {
-                when {
-                    isStoppedStatus(delta.chargingStatus) -> false
-                    isActiveStatus(delta.chargingStatus) -> true
-                    else -> existing.charging
-                }
-            }
+            delta.chargerConnected == false -> false
             pausedStatus -> false
             else -> existing.charging
         }
 
         val resolvedStatus = when {
-            delta.chargerConnected == false && delta.chargingStatus == null -> "Disconnected"
             delta.chargingStatus != null -> delta.chargingStatus
             delta.charging == true -> "Charging"
+            delta.chargerConnected == false -> "Disconnected"
             delta.charging == false -> if (connected == true) "Paused" else "Idle"
             else -> status
         }

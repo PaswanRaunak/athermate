@@ -44,7 +44,7 @@ fun AtherAppShell(
     onResumeCharging: () -> Unit,
     onClearRemoteChargingLatch: () -> Unit,
     onChargeLimitEnabledChange: (Boolean) -> Unit,
-    onChargeLimitPercentChange: (Int) -> Unit,
+    onChargeLimitPercentChange: (Int, Int) -> Unit,
     onChargeLimitRetry: () -> Unit,
     onLogout: () -> Unit
 ) {
@@ -79,7 +79,7 @@ fun AtherAppShell(
                         onOpenCharging = { selected = Destination.CHARGING }, onOpenMap = { selected = Destination.MAP }, onClearTrips)
                     Destination.CHARGING -> LazyColumn(contentPadding = PaddingValues(18.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         item { FreshnessLabel(dashboard) }
-                        item { ChargeLimitCard(chargeLimit, onChargeLimitEnabledChange, onChargeLimitPercentChange, onChargeLimitRetry) }
+                        item { ChargeLimitCard(chargeLimit, dashboard, onChargeLimitEnabledChange, onChargeLimitPercentChange, onChargeLimitRetry) }
                         item { ChargeEstimateCard(dashboard, chargeLimit.percent) }
                         item { ChargingActions(dashboard.telemetry, dashboard.remoteChargingCommand,
                             onPauseCharging, onResumeCharging, onRetryLatch = onClearRemoteChargingLatch) }

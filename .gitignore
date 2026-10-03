@@ -21,3 +21,16 @@ ather_session.json
 *.bundle
 *.tar.gz
 *.sha256
+
+# Local desktop API sessions/captures (actual storage is outside this repository).
+session.json
+pending-login.json
+last-response.json
+monitor.jsonl
+.ather-lab/
+atherpro-lab/
+charge-limit-state.json
+charge-limit.lock
+
+# Native build artifacts
+rust/target/

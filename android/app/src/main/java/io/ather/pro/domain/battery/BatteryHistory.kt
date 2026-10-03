@@ -6,8 +6,9 @@ import kotlin.math.abs
 
 /** Samples actual battery reports. Unrelated socket packets do not repeat stale SoC. */
 object BatteryHistory {
-    const val SAMPLE_INTERVAL_MS = 1_000L
-    const val MAX_SAMPLES = 3_600
+    const val SAMPLE_INTERVAL_MS = 5_000L
+    const val RETENTION_MS = 24 * 60 * 60_000L
+    const val MAX_SAMPLES = 17_281
     const val MAX_LINE_GAP_MS = 120_000L
 
     fun record(
@@ -29,7 +30,7 @@ object BatteryHistory {
             // cannot be distinguished from standstill in previously stored samples.
             speedKmh = report.gps?.speed?.takeIf { it.isFinite() && it >= 0.0 } ?: 0.0,
             mode = report.mode ?: last?.mode ?: "Unknown"
-        )).takeLast(MAX_SAMPLES)
+        )).filter { it.timestamp >= observedAt - RETENTION_MS }.takeLast(MAX_SAMPLES)
     }
 
     fun visible(
@@ -38,10 +39,9 @@ object BatteryHistory {
         durationMs: Long?
     ): List<TelemetrySample> {
         val start = durationMs?.let { nowMs - it } ?: 0L
-        return history.filter {
-            it.timestamp > 0L && it.timestamp in start..nowMs &&
-                it.batterySoc.isFinite() && it.batterySoc in 0.0..100.0
-        }.distinctBy { it.timestamp }.sortedBy { it.timestamp }
+        val engine = io.ather.pro.domain.computation.TelemetryComputation.requireEngine()
+        return engine.historyIndices(history.map { it.timestamp }.toLongArray(),
+            history.map { it.batterySoc }.toDoubleArray(), start, nowMs).map { history[it] }
     }
 
     /** Select a measured point by time, not by sample index or invented interpolation. */

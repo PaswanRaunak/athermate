@@ -14,17 +14,43 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.ather.pro.domain.charging.ChargeLimitController
+import io.ather.pro.domain.charging.ChargeTimeEstimator
+import io.ather.pro.domain.charging.ChargingControl
+import io.ather.pro.domain.model.ScooterDashboardState
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import kotlinx.coroutines.delay
+import kotlin.math.ceil
 import kotlin.math.roundToInt
 
 @Composable
 fun ChargeLimitCard(
     snapshot: ChargeLimitController.Snapshot,
+    dashboard: ScooterDashboardState,
     onEnabledChange: (Boolean) -> Unit,
-    onPercentChange: (Int) -> Unit,
+    onPercentChange: (Int, Int) -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var selected by rememberSaveable(snapshot.percent) { mutableIntStateOf(snapshot.percent) }
+    var power by rememberSaveable(snapshot.chargerPowerW) { mutableIntStateOf(snapshot.chargerPowerW) }
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) { while (true) { delay(1_000); now = System.currentTimeMillis() } }
+    val active = ChargingControl.isActivelyCharging(dashboard.telemetry)
+    val reportedAt = dashboard.batteryReportedAt ?: dashboard.batteryUpdatedAt
+    val unapplied = selected != snapshot.percent || power != snapshot.chargerPowerW
+    val estimate = if (snapshot.enabled && !unapplied && active && snapshot.estimate != null)
+        snapshot.estimate else ChargeTimeEstimator.estimate(dashboard.telemetry, selected,
+            dashboard.settings.selectedModel.usableCapacityWh, power, reportedAt ?: 0L, now,
+            dashboard.chargingRatePercentPerMinute, active)
+    val clockFormat = remember { SimpleDateFormat("d MMM, h:mm a", Locale.getDefault()) }
+    fun at(time: Long) = clockFormat.format(Date(time))
+    fun remaining(until: Long): String {
+        val minutes = ceil((until - now).coerceAtLeast(0L) / 60_000.0).toInt()
+        return if (minutes == 0) "now" else if (minutes < 60) "about $minutes min" else
+            "about ${minutes / 60} h ${minutes % 60} min"
+    }
     val pending = snapshot.status == ChargeLimitController.Status.PENDING
     val status = when (snapshot.status) {
         ChargeLimitController.Status.DISABLED -> "Off"
@@ -54,16 +80,60 @@ fun ChargeLimitCard(
                     FilterChip(selected = selected == target, onClick = { selected = target }, label = { Text("$target%") })
                 }
             }
-            Button(onClick = { onPercentChange(selected) }, modifier = Modifier.fillMaxWidth(),
-                enabled = !pending && (!snapshot.enabled || selected != snapshot.percent)) {
+            Text("Charger power for estimate", style = MaterialTheme.typography.labelLarge)
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ChargeTimeEstimator.CHARGER_POWERS.forEach { watts ->
+                    FilterChip(selected = power == watts, onClick = { power = watts },
+                        label = { Text("$watts W") })
+                }
+            }
+            Text("Match this to your charger. Used when Ather's ETA and a measured charging rate are unavailable.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(16.dp)) {
+                Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (estimate != null) {
+                        Text("Estimated $selected%: ${at(estimate.targetAtMs)}",
+                            style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                        Text("${remaining(estimate.targetAtMs)} · ${estimate.basisLabel}",
+                            style = MaterialTheme.typography.bodySmall)
+                        val timerArmed = snapshot.enabled && !unapplied && snapshot.armed && snapshot.estimate != null &&
+                            snapshot.status == ChargeLimitController.Status.MONITORING
+                        Text((if (timerArmed) "Scheduled Pause: " else "Pause preview: ") +
+                            "${at(estimate.stopAtMs)} (${remaining(estimate.stopAtMs)})",
+                            style = MaterialTheme.typography.bodySmall)
+                        Text(if (timerArmed) "Timer armed" else if (!snapshot.enabled || unapplied)
+                            "Preview only — apply the limit to arm it" else if (pending)
+                            "Stop requested — waiting for confirmation" else "Timer not armed",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = if (timerArmed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (!active) Text("If charging starts now. The timer waits for reported charging.",
+                            style = MaterialTheme.typography.bodySmall)
+                        else if (snapshot.enabled && !unapplied && snapshot.estimate == null) {
+                            Text("Waiting for a newer charging reading to arm the timer.", style = MaterialTheme.typography.bodySmall)
+                        }
+                        if (active && reportedAt != null && now - reportedAt > 30_000L) {
+                            val age = ceil((now - reportedAt).coerceAtLeast(0L) / 60_000.0).toInt()
+                            Text("Based on a $age min old battery reading; assumes charging continued.",
+                                style = MaterialTheme.typography.bodySmall)
+                        }
+                        Text("Approximate. Fallback stops slightly early; final charge may differ from $selected%.",
+                            style = MaterialTheme.typography.bodySmall)
+                    } else {
+                        Text("Waiting for a timestamped battery reading to estimate $selected%.",
+                            style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+            Button(onClick = { onPercentChange(selected, power) }, modifier = Modifier.fillMaxWidth(),
+                enabled = !pending && (!snapshot.enabled || unapplied)) {
                 Text(if (snapshot.enabled) "Apply $selected% limit" else "Enable $selected% limit")
             }
-            if (snapshot.enabled && selected != snapshot.percent) Text("New target has not been applied.", style = MaterialTheme.typography.bodySmall)
+            if (snapshot.enabled && unapplied) Text("New target or charger setting has not been applied.", style = MaterialTheme.typography.bodySmall)
             snapshot.message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
             if (snapshot.status == ChargeLimitController.Status.ERROR) {
                 OutlinedButton(onClick = onRetry) { Text("Retry stop at ${snapshot.percent}%") }
             }
-            Text("Uses Pause at or above your target and retries until the scooter confirms it stopped. Keep this phone online with charging monitoring active.",
+            Text("Checks every 5 seconds. Sends Pause when a fresh reading reaches your target or the estimated fallback time arrives. Keep this phone online; turn the limit off to end monitoring.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (snapshot.enabled) Text("Turn the limit off before resuming a charge above ${snapshot.percent}%.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

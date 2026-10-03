@@ -69,12 +69,12 @@ private data class BatteryInspection(val frame: BatteryChartFrame, val point: Te
 @Composable
 fun BatteryHistoryCard(dashboard: ScooterDashboardState, modifier: Modifier = Modifier, chargeLimitPercent: Int? = null) {
     val colors = MaterialTheme.colorScheme
-    var window by remember { mutableStateOf(TimeWindow.MIN_5) }
+    var window by remember { mutableStateOf(TimeWindow.HOUR_24) }
     var nowMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var inspection by remember { mutableStateOf<BatteryInspection?>(null) }
     LaunchedEffect(Unit) {
         while (true) {
-            delay(1_000L)
+            delay(30_000L)
             nowMs = System.currentTimeMillis()
         }
     }
@@ -95,7 +95,7 @@ fun BatteryHistoryCard(dashboard: ScooterDashboardState, modifier: Modifier = Mo
     val latestFrame by rememberUpdatedState(frame)
     val selected = inspection?.point
     val displayed = selected ?: frame.points.lastOrNull()
-    val timeFormat = remember { SimpleDateFormat("HH:mm:ss", Locale.getDefault()) }
+    val timeFormat = remember { SimpleDateFormat("dd MMM HH:mm", Locale.getDefault()) }
     val readingTimeFormat = remember { SimpleDateFormat("dd MMM, HH:mm:ss", Locale.getDefault()) }
     val isLive = dashboard.connection == ConnectionStatus.CONNECTED &&
         dashboard.telemetryHistory.lastOrNull()?.let { nowMs - it.timestamp in 0L..30_000L } == true
@@ -125,11 +125,11 @@ fun BatteryHistoryCard(dashboard: ScooterDashboardState, modifier: Modifier = Mo
                     FilterChip(
                         selected = window == option,
                         onClick = { window = option; inspection = null },
-                        label = { Text(if (option == TimeWindow.TRIP) "All" else option.label) }
+                        label = { Text(option.label) }
                     )
                 }
             }
-            Text("100% at the top · 0% at the bottom" + (chargeLimitPercent?.let { " · Dashed limit $it%" } ?: ""),
+            Text("Last 24 hours saved on this phone · Gaps mean no readings" + (chargeLimitPercent?.let { " · Dashed limit $it%" } ?: ""),
                 style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
             Text(pointDescription, style = MaterialTheme.typography.bodyMedium,
                 color = colors.primary, fontWeight = FontWeight.SemiBold)

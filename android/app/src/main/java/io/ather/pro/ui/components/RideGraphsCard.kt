@@ -54,7 +54,7 @@ fun RideGraphsCard(dashboard: ScooterDashboardState) {
             }
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 TimeWindow.entries.forEach { option ->
-                    FilterChip(selected = window == option, onClick = { window = option; frozen = null; selected = null }, label = { Text(if (option == TimeWindow.TRIP) "All" else option.label) })
+                    FilterChip(selected = window == option, onClick = { window = option; frozen = null; selected = null }, label = { Text(option.label) })
                 }
             }
             Text("${number(displayed?.value, 1)} ${metric.unit}" + (displayed?.let { " · ${timeFormat.format(Date(it.timestamp))}" } ?: ""),

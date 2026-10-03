@@ -31,6 +31,15 @@ interface DashboardDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun upsertTelemetrySamples(samples: List<TelemetrySampleEntity>)
 
+    @Query("DELETE FROM telemetry_history WHERE timestamp < :oldest")
+    fun pruneTelemetryHistory(oldest: Long)
+
+    @Transaction
+    fun appendTelemetryHistory(samples: List<TelemetrySampleEntity>, oldest: Long) {
+        upsertTelemetrySamples(samples)
+        pruneTelemetryHistory(oldest)
+    }
+
     @Query("DELETE FROM telemetry_history")
     fun clearTelemetryHistory()
 

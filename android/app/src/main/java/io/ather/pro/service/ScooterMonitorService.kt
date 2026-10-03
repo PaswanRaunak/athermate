@@ -71,7 +71,10 @@ class ScooterMonitorService : Service() {
                     }
                     val soc = state.telemetry?.batterySoc?.takeIf(Double::isFinite)?.roundToInt()?.let { " · $it%" }.orEmpty()
                     val target = if (limit.enabled) " · Limit ${limit.percent}% (${limit.status.name.lowercase()})" else ""
-                    val text = connection + soc + target
+                    val stopTime = if (limit.enabled && limit.status == io.ather.pro.domain.charging.ChargeLimitController.Status.MONITORING)
+                        limit.estimate?.let { " · Est. stop " + java.text.SimpleDateFormat("h:mm a", java.util.Locale.getDefault())
+                            .format(java.util.Date(it.stopAtMs)) }.orEmpty() else ""
+                    val text = connection + soc + target + stopTime
                     if (text != previousText) {
                         notifications.notify(NOTIFICATION_ID, notification(text))
                         previousText = text
@@ -96,7 +99,7 @@ class ScooterMonitorService : Service() {
 
     private fun notification(message: String): Notification = MonitorNotification.build(this, message)
 
-    /** Keep the limit timer running with the screen off, only during monitored charging. */
+    /** Keep fixed snapshot checks running with the screen off whenever the limiter is enabled. */
     private fun keepCutoffAwake(required: Boolean) {
         if (!required) {
             cutoffWakeLock?.takeIf { it.isHeld }?.release()

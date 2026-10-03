@@ -7,14 +7,23 @@ import io.ather.pro.domain.model.ScooterDashboardState
 import io.ather.pro.domain.charging.ChargeLimitController
 
 object DashboardWidgetUpdater {
+    private var previousSnapshot: DashboardWidgetSnapshot? = null
+    private var previousStale: Boolean? = null
     fun publish(context: Context, state: ScooterDashboardState, limit: ChargeLimitController.Snapshot = ChargeLimitController.Snapshot()) {
         val appContext = context.applicationContext
         if (state.telemetry == null && state.lastUpdated == null) return
-        DashboardWidgetSnapshot.save(appContext, DashboardWidgetSnapshot.fromDashboard(state, limit))
+        val snapshot = DashboardWidgetSnapshot.fromDashboard(state, limit)
+        val stale = System.currentTimeMillis() - snapshot.updatedAtMs > 60_000L
+        if (snapshot == previousSnapshot && stale == previousStale) return
+        previousSnapshot = snapshot
+        previousStale = stale
+        DashboardWidgetSnapshot.save(appContext, snapshot)
         refreshAll(appContext)
     }
 
     fun clear(context: Context) {
+        previousSnapshot = null
+        previousStale = null
         DashboardWidgetSnapshot.save(context, DashboardWidgetSnapshot())
         refreshAll(context)
     }

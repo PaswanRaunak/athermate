@@ -173,6 +173,9 @@ android/app/build/outputs/apk/release/app-release.apk
 
 ## Testing & Verification
 
+For desktop OTP login, live telemetry, and start/stop API tests with credentials
+stored outside Git, see [Desktop API lab](docs/LOCAL-API-LAB.md).
+
 The project includes unit and end-to-end integration tests:
 
 1. **Unit Test Suite (121 tests)**:
@@ -234,4 +237,3 @@ docs/                    # Technical architecture & release notes
 > **Notice**: This application was developed independently using exclusively publicly available information, standard open network protocols, and resources accessible online. It contains no proprietary source code, confidential intellectual property, or trade secrets.
 >
 > This project is completely independent and is not affiliated with, authorized, maintained, sponsored, or endorsed by any vehicle manufacturer, automotive brand, or corporate entity. All trademarks, service marks, trade names, and product names are the property of their respective owners. The software is provided solely for personal interoperability, research, educational, and hobbyist purposes.
-

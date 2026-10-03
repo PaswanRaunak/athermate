@@ -9,11 +9,13 @@ class MonitoringPolicyTest {
             assertFalse(MonitoringPolicy.shouldRun(false, enabled, limit, charging = true))
         }
     }
-    @Test fun onlyChargingAndPendingConfirmationNeedAForegroundNotification() {
+    @Test fun enabledLimitKeepsMonitoringBeforeChargingStarts() {
         assertTrue(MonitoringPolicy.shouldRun(true, false, true, charging = true))
         assertTrue(MonitoringPolicy.shouldRun(true, true, false, charging = true))
         assertFalse(MonitoringPolicy.shouldRun(true, false, false, charging = true))
-        assertFalse(MonitoringPolicy.shouldRun(true, true, true, charging = false))
+        assertTrue(MonitoringPolicy.shouldRun(true, true, true, charging = false))
+        assertTrue(MonitoringPolicy.shouldRun(true, false, true, charging = false))
+        assertFalse(MonitoringPolicy.shouldRun(true, true, false, charging = false))
         assertTrue(MonitoringPolicy.shouldRun(true, false, true, charging = false, awaitingStop = true))
     }
 }

@@ -30,7 +30,7 @@ interface ScooterRepository {
     /** Advance pending→ERROR on timeout even when telemetry is quiet (keeps buttons usable). */
     fun tickRemoteChargingTimeouts()
 
-    fun setChargeLimit(enabled: Boolean, percent: Int)
+    fun setChargeLimit(enabled: Boolean, percent: Int, chargerPowerW: Int? = null)
 
     fun retryChargeLimit()
 }

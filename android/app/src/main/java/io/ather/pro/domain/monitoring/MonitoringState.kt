@@ -9,5 +9,5 @@ data class MonitoringState(
 object MonitoringPolicy {
     fun shouldRun(signedIn: Boolean, alwaysEnabled: Boolean, limitEnabled: Boolean,
         charging: Boolean, awaitingStop: Boolean = false): Boolean =
-        signedIn && (alwaysEnabled || limitEnabled) && (charging || awaitingStop)
+        signedIn && (alwaysEnabled || limitEnabled) && (limitEnabled || charging || awaitingStop)
 }

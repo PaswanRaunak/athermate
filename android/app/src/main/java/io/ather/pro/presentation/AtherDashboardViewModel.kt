@@ -39,8 +39,8 @@ class AtherDashboardViewModel(
         repository.tickRemoteChargingTimeouts()
     }
 
-    fun setChargeLimit(enabled: Boolean, percent: Int) {
-        repository.setChargeLimit(enabled, percent)
+    fun setChargeLimit(enabled: Boolean, percent: Int, chargerPowerW: Int? = null) {
+        repository.setChargeLimit(enabled, percent, chargerPowerW)
     }
 
     fun retryChargeLimit() {

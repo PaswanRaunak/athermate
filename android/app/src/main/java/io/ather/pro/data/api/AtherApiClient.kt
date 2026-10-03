@@ -20,13 +20,7 @@ import java.io.IOException
 import java.util.concurrent.TimeUnit
 import kotlin.math.roundToInt
 
-class AtherApiClient {
-    interface Listener {
-        fun onConnected(socket: WebSocket)
-        fun onTelemetry(telemetry: ScooterTelemetry)
-        fun onDisconnected(reason: String)
-        fun onError(message: String)
-    }
+class AtherApiClient : AtherCloudApi {
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
@@ -38,7 +32,7 @@ class AtherApiClient {
     private val httpClient = client.newBuilder().readTimeout(30, TimeUnit.SECONDS).callTimeout(30, TimeUnit.SECONDS).build()
     private val gson = Gson()
 
-    fun connect(token: String, uuid: String, listener: Listener): WebSocket {
+    override fun connect(token: String, uuid: String, listener: AtherCloudApi.Listener): WebSocket {
         val request = Request.Builder()
             .url("wss://cerberus.ather.io/api/v1/ws/devices/shadows/onchange?uuid=$uuid")
             .addHeader("Source", "ATHER_APP/13.2.0")
@@ -77,7 +71,7 @@ class AtherApiClient {
         })
     }
 
-    fun subscribe(socket: WebSocket): Boolean = socket.send(SUBSCRIPTION)
+    override fun subscribe(socket: WebSocket): Boolean = socket.send(SUBSCRIPTION)
 
     /**
      * Ather remote charging is an HTTP device-shadow mutation. WebSocket.send() only
@@ -101,7 +95,7 @@ class AtherApiClient {
     }
 
     /** Gateway adapter for [io.ather.pro.domain.charging.RemoteChargingDispatcher]. */
-    fun asRemoteChargingGateway(): io.ather.pro.domain.charging.RemoteChargingGateway =
+    override fun asRemoteChargingGateway(): io.ather.pro.domain.charging.RemoteChargingGateway =
         io.ather.pro.domain.charging.RemoteChargingGateway { token, scooterUuid, start, callback ->
             setRemoteCharging(token, scooterUuid, start, callback)
         }
@@ -128,7 +122,7 @@ class AtherApiClient {
         }
     }
 
-    fun fetchVehicleProfile(
+    override fun fetchVehicleProfile(
         token: String,
         uuid: String,
         callback: (Result<VehicleProfile>) -> Unit
@@ -175,7 +169,7 @@ class AtherApiClient {
         })
     }
 
-    fun fetchRides(
+    override fun fetchRides(
         token: String,
         scooterId: String,
         usableCapacityWh: Double,
@@ -312,6 +306,7 @@ class AtherApiClient {
         val chargerConnected = charging.booleanLike("chargerConnected")
             ?: root.booleanLike("telemetry.charging.chargerConnected")
             ?: root.booleanLike("chargerConnected")
+        // Cerberus exposes remaining-time counters in seconds; the domain uses minutes.
         val time2Full = charging.decimal("time2FullCharge")
             ?: root.decimal("telemetry.charging.time2FullCharge", "time2FullCharge")
         val time2Eighty = charging.decimal("time2EightyCharge")
@@ -325,12 +320,14 @@ class AtherApiClient {
                 "type"
             )
 
+        // Live home-charging snapshots can say Charging + heartbeat On while
+        // chargerConnected is Off. The physical charging status takes precedence.
         val isCharging = when {
-            chargerConnected == false -> false
             io.ather.pro.domain.charging.ChargingControl.isStoppedStatus(chargingStatus) -> false
             io.ather.pro.domain.charging.ChargingControl.isActiveStatus(chargingStatus) -> true
             heartbeat.equals("On", ignoreCase = true) -> true
             heartbeat.equals("Off", ignoreCase = true) -> false
+            chargerConnected == false -> false
             vehicleState.equals("charging", ignoreCase = true) -> true
             else -> null
         }
@@ -472,6 +469,9 @@ class AtherApiClient {
 
         return ScooterTelemetry(
             batterySoc = battery,
+            sourceTimestampMs = bike?.epochMillis("last_synced_time")
+                ?: root.epochMillis("telemetry.bike.last_synced_time")
+                ?: root.epochMillis("last_synced_time"),
             reportedSohPercent = reportedSoh,
             rangeKm = range,
             odoKm = odo,
@@ -480,8 +480,8 @@ class AtherApiClient {
             charging = isCharging,
             chargerConnected = chargerConnected,
             chargingStatus = chargingStatus,
-            timeToFullChargeMin = time2Full,
-            timeToEightyChargeMin = time2Eighty,
+            timeToFullChargeMin = time2Full?.takeIf { it.isFinite() && it >= 0.0 }?.div(60.0),
+            timeToEightyChargeMin = time2Eighty?.takeIf { it.isFinite() && it >= 0.0 }?.div(60.0),
             savingsInr = savings,
             gps = gps,
             modeRanges = modeRanges,

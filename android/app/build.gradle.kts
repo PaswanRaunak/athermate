@@ -13,8 +13,8 @@ android {
         applicationId = "io.ather.pro"
         minSdk = 26
         targetSdk = 34
-        versionCode = 4
-        versionName = "1.1.2"
+        versionCode = 8
+        versionName = "1.1.6-local"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -81,3 +81,17 @@ dependencies {
 
     testImplementation("junit:junit:4.13.2")
 }
+
+// Native computation is packaged for physical phones and emulators.
+val nativeOutput = layout.buildDirectory.dir("generated/rustJniLibs")
+val buildRust by tasks.registering(Exec::class) {
+    inputs.files(fileTree("../../rust/ather-math") { exclude("target/**") })
+    inputs.file("../../scripts/build-android-rust.sh")
+    outputs.dir(nativeOutput)
+    doFirst { delete(nativeOutput.get().asFile) }
+    environment("ANDROID_HOME", android.sdkDirectory.absolutePath)
+    commandLine("bash", file("../../scripts/build-android-rust.sh").absolutePath,
+        nativeOutput.get().asFile.absolutePath)
+}
+android.sourceSets.getByName("main").jniLibs.srcDir(nativeOutput)
+tasks.named("preBuild").configure { dependsOn(buildRust) }

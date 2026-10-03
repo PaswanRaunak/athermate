@@ -14,8 +14,8 @@ object WidgetRenderer {
         val scale = context.resources.configuration.fontScale.coerceAtLeast(1f)
         val height = heightDp / scale
         val roomy = height >= 320
-        val details = height >= 205
-        val rows = height >= 225 && snapshot.modeRanges.isNotEmpty()
+        val details = height >= 320
+        val rows = height >= 450 && snapshot.modeRanges.isNotEmpty()
         val accent = context.getColor(R.color.widget_accent)
         val primary = context.getColor(R.color.widget_text)
         val secondary = context.getColor(R.color.widget_secondary)
@@ -31,18 +31,21 @@ object WidgetRenderer {
         return RemoteViews(context.packageName, R.layout.widget_scooter_status).apply {
             val outerPadding = dp(if (roomy) 16 else 12)
             setViewPadding(R.id.widget_root, outerPadding, outerPadding, outerPadding, outerPadding)
-            setTextViewText(R.id.widget_soc, "${snapshot.socText} battery")
-            setTextViewText(R.id.widget_range, "${snapshot.rangeText} · ${snapshot.currentMode ?: "estimated range"}")
-            setTextViewTextSize(R.id.widget_soc, TypedValue.COMPLEX_UNIT_SP, if (roomy) 28f else 24f)
+            setTextViewText(R.id.widget_soc, snapshot.socText)
+            setTextViewText(R.id.widget_range, "${snapshot.rangeText} range")
+            setTextViewTextSize(R.id.widget_soc, TypedValue.COMPLEX_UNIT_SP, if (widthDp / scale >= 320) 54f else if (widthDp / scale >= 250) 46f else 30f)
             setTextViewTextSize(R.id.widget_range, TypedValue.COMPLEX_UNIT_SP, if (roomy) 14f else 12f)
             val heroPadding = dp(if (roomy) 10 else 3)
             setViewPadding(R.id.widget_hero, 0, heroPadding, 0, heroPadding)
+            setTextViewText(R.id.widget_title, snapshot.vehicleName)
+            setProgressBar(R.id.widget_battery_bar, 100, (snapshot.socPercent ?: 0.0).roundToInt().coerceIn(0, 100), false)
+            setTextViewText(R.id.widget_charge_limit, snapshot.chargeLabel)
             setTextViewText(R.id.widget_connection, status)
             setTextColor(R.id.widget_connection, if (status == "Live" || status == "Charging") accent else secondary)
-            setTextViewText(R.id.widget_sync, if (details) snapshot.syncLabel else "Resize for mode ranges")
-            setViewVisibility(R.id.widget_header, if (height >= 155) View.VISIBLE else View.GONE)
+            setTextViewText(R.id.widget_sync, snapshot.syncLabel + " · " + snapshot.chargeLabel)
+            setViewVisibility(R.id.widget_header, if (height >= 180) View.VISIBLE else View.GONE)
             setViewVisibility(R.id.widget_details, if (details) View.VISIBLE else View.GONE)
-            setViewVisibility(R.id.widget_footer, if (height >= 130) View.VISIBLE else View.GONE)
+            setViewVisibility(R.id.widget_footer, if (height >= 180) View.VISIBLE else View.GONE)
             val panelPadding = dp(if (roomy) 12 else 8)
             setViewPadding(R.id.widget_details, panelPadding, panelPadding, panelPadding, panelPadding)
             setViewVisibility(R.id.widget_modes_rows, if (rows) View.VISIBLE else View.GONE)

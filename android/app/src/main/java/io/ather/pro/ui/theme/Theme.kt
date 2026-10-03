@@ -13,6 +13,10 @@ import androidx.compose.ui.graphics.Color
 
 private val AtherColorScheme = darkColorScheme(
     primary = AtherAccent,
+    secondary = AtherAccent,
+    primaryContainer = Color(0xFF10382E),
+    secondaryContainer = Color(0xFF163A32),
+    tertiary = Color(0xFFCCE475),
     onPrimary = Color(0xFF17110D),
     background = AtherBackground,
     onBackground = AtherText,
@@ -25,8 +29,8 @@ private val AtherColorScheme = darkColorScheme(
 
 @Composable
 fun AtherProTheme(
-    dynamicColor: Boolean = true,
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    dynamicColor: Boolean = false,
+    darkTheme: Boolean = true,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {

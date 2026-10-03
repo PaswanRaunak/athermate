@@ -1,66 +1,47 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/widget_root"
-    android:layout_width="match_parent" android:layout_height="match_parent"
-    android:orientation="vertical" android:padding="16dp"
-    android:background="@drawable/widget_background"
+    android:id="@+id/widget_root" android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:padding="16dp" android:background="@drawable/widget_background"
     android:contentDescription="@string/widget_content_description">
-
-    <LinearLayout android:id="@+id/widget_header"
-        android:layout_width="match_parent" android:layout_height="40dp"
-        android:gravity="center_vertical" android:orientation="horizontal">
-        <ImageView android:id="@+id/widget_badge"
-            android:layout_width="28dp" android:layout_height="28dp"
-            android:src="@drawable/widget_badge" android:importantForAccessibility="no" />
-        <TextView android:id="@+id/widget_title"
-            android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
-            android:layout_marginStart="10dp" android:fontFamily="sans-serif-medium"
-            android:includeFontPadding="false" android:maxLines="1" android:ellipsize="end"
-            android:text="@string/widget_title" android:textColor="@color/widget_text" android:textSize="16sp" />
-        <ImageButton android:id="@+id/widget_refresh"
-            android:layout_width="40dp" android:layout_height="40dp" android:padding="8dp"
-            android:background="@drawable/widget_action_background" android:src="@drawable/widget_refresh"
+    <LinearLayout android:id="@+id/widget_header" android:layout_width="match_parent" android:layout_height="32dp"
+        android:orientation="horizontal" android:gravity="center_vertical">
+        <TextView android:id="@+id/widget_title" android:layout_width="0dp" android:layout_height="wrap_content"
+            android:layout_weight="1" android:text="@string/widget_title" android:textSize="14sp"
+            android:fontFamily="sans-serif-medium" android:textColor="@color/widget_secondary" android:maxLines="1" android:ellipsize="end" />
+        <ImageButton android:id="@+id/widget_refresh" android:layout_width="32dp" android:layout_height="32dp"
+            android:padding="7dp" android:background="@drawable/widget_action_background" android:src="@drawable/widget_refresh"
             android:contentDescription="@string/widget_refresh_description" />
     </LinearLayout>
-
-    <LinearLayout android:id="@+id/widget_hero"
-        android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:paddingVertical="10dp" android:gravity="center_vertical" android:orientation="horizontal">
-        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:orientation="vertical">
-            <TextView android:id="@+id/widget_soc"
-                android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:fontFamily="sans-serif-medium" android:includeFontPadding="false"
-                android:maxLines="1" android:ellipsize="end"
-                android:text="@string/widget_soc_placeholder" android:textColor="@color/widget_text" android:textSize="28sp" />
-            <TextView android:id="@+id/widget_range"
-                android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="3dp"
-                android:includeFontPadding="false" android:maxLines="1" android:ellipsize="end"
-                android:text="@string/widget_range_placeholder" android:textColor="@color/widget_secondary" android:textSize="14sp" />
+    <LinearLayout android:id="@+id/widget_hero" android:layout_width="match_parent" android:layout_height="0dp"
+        android:layout_weight="1" android:gravity="center_vertical" android:orientation="horizontal">
+        <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical">
+            <TextView android:id="@+id/widget_connection" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:background="@drawable/widget_mode_background" android:paddingHorizontal="10dp" android:paddingVertical="4dp"
+                android:text="@string/widget_connection_offline" android:textColor="@color/widget_accent" android:textSize="12sp" android:maxLines="1" />
+            <TextView android:id="@+id/widget_soc" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:includeFontPadding="false" android:fontFamily="sans-serif-black" android:text="@string/widget_soc_placeholder"
+                android:textSize="50sp" android:textColor="@color/widget_text" android:maxLines="1" />
+            <ProgressBar android:id="@+id/widget_battery_bar" style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent" android:layout_height="7dp" android:progressDrawable="@drawable/widget_battery_progress" android:max="100" />
+            <TextView android:id="@+id/widget_range" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="8dp" android:includeFontPadding="false" android:text="@string/widget_range_placeholder"
+                android:textColor="@color/widget_text" android:textSize="14sp" android:maxLines="1" android:ellipsize="end" />
         </LinearLayout>
+        <ImageView android:id="@+id/widget_scooter" android:layout_width="0dp" android:layout_weight="1.15"
+            android:layout_height="match_parent" android:layout_marginStart="4dp" android:src="@drawable/scooter_hero"
+            android:scaleType="fitCenter" android:importantForAccessibility="no" />
     </LinearLayout>
-
-    <LinearLayout android:id="@+id/widget_details"
-        android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:padding="12dp" android:orientation="vertical" android:background="@drawable/widget_mode_background">
-        <LinearLayout android:id="@+id/widget_modes_rows"
-            android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" />
-        <TextView android:id="@+id/widget_modes"
-            android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:includeFontPadding="false" android:lineSpacingExtra="4dp"
-            android:text="@string/widget_modes_empty" android:textColor="@color/widget_text" android:textSize="12sp" />
+    <LinearLayout android:id="@+id/widget_details" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:background="@drawable/widget_mode_background" android:padding="10dp" android:orientation="vertical">
+        <TextView android:id="@+id/widget_charge_limit" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:textColor="@color/widget_accent" android:textSize="12sp" android:maxLines="1" />
+        <LinearLayout android:id="@+id/widget_modes_rows" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" />
+        <TextView android:id="@+id/widget_modes" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="@string/widget_modes_empty" android:textColor="@color/widget_secondary" android:textSize="12sp" android:maxLines="2" android:ellipsize="end" />
     </LinearLayout>
-
-    <LinearLayout android:id="@+id/widget_footer"
-        android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:layout_marginTop="8dp" android:gravity="center_vertical" android:orientation="horizontal">
-        <TextView android:id="@+id/widget_sync"
-            android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
-            android:includeFontPadding="false" android:maxLines="1" android:ellipsize="end"
-            android:text="@string/widget_sync_never" android:textColor="@color/widget_secondary" android:textSize="11sp" />
-        <TextView android:id="@+id/widget_connection"
-            android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="8dp"
-            android:includeFontPadding="false" android:maxLines="1"
-            android:text="@string/widget_connection_offline" android:textColor="@color/widget_secondary" android:textSize="11sp" />
+    <LinearLayout android:id="@+id/widget_footer" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="8dp" android:orientation="horizontal">
+        <TextView android:id="@+id/widget_sync" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="@string/widget_sync_never" android:textColor="@color/widget_secondary" android:textSize="10sp" android:maxLines="1" android:ellipsize="end" />
     </LinearLayout>
 </LinearLayout>

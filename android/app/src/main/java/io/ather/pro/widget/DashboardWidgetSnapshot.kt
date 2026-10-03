@@ -23,7 +23,8 @@ data class DashboardWidgetSnapshot(
     val modeRanges: List<RideModeRange> = emptyList(),
     val chargeLabel: String = "Limit off",
     val charging: Boolean = false,
-    val currentMode: String? = null
+    val currentMode: String? = null,
+    val vehicleName: String = "ATHR+"
 ) {
     val socText: String
         get() = socPercent?.let { String.format(Locale.getDefault(), "%.0f%%", it) } ?: "—"
@@ -51,7 +52,7 @@ data class DashboardWidgetSnapshot(
             val telemetry = state.telemetry
             val model = state.settings.selectedModel
             val range = RangeEstimator.current(telemetry, model)
-            val batteryUpdatedAt = state.batteryUpdatedAt ?: state.lastUpdated
+            val batteryUpdatedAt = state.batteryReportedAt ?: telemetry?.sourceTimestampMs ?: state.batteryUpdatedAt ?: state.lastUpdated
             val sync = batteryUpdatedAt?.let {
                 "Synced " + SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(it))
             } ?: "Never synced"
@@ -71,10 +72,11 @@ data class DashboardWidgetSnapshot(
                     ChargeLimitController.Status.PENDING -> "Stopping"
                     ChargeLimitController.Status.CONFIRMED -> "Paused"
                     ChargeLimitController.Status.ERROR -> "Check app"
-                    else -> "Watching"
+                    else -> limit.estimate?.let { "Est. stop " + SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(it.stopAtMs)) } ?: "Watching"
                 } else "Limit off",
                 charging = ChargingControl.isActivelyCharging(telemetry),
-                currentMode = RideMode.from(telemetry?.mode)?.takeIf { it.supportedBy(model) }?.displayName
+                currentMode = RideMode.from(telemetry?.mode)?.takeIf { it.supportedBy(model) }?.displayName,
+                vehicleName = state.vehicleProfile?.displayName ?: model.displayName
             )
         }
 
@@ -94,7 +96,8 @@ data class DashboardWidgetSnapshot(
                 }.getOrDefault(emptyList()),
                 chargeLabel = prefs.getString("charge_label", "Limit off").orEmpty(),
                 charging = prefs.getBoolean("charging", false),
-                currentMode = prefs.getString("current_mode", null)
+                currentMode = prefs.getString("current_mode", null),
+                vehicleName = prefs.getString("vehicle_name", "ATHR+") ?: "ATHR+"
             )
         }
 
@@ -122,6 +125,7 @@ data class DashboardWidgetSnapshot(
                     remove("limit_percent")
                     putBoolean("charging", snapshot.charging)
                     putString("current_mode", snapshot.currentMode)
+                    putString("vehicle_name", snapshot.vehicleName)
                 }
                 .apply()
         }

@@ -3,6 +3,9 @@ package io.ather.pro.data.charging
 import android.content.Context
 import android.content.SharedPreferences
 import io.ather.pro.domain.charging.ChargeLimitController
+import io.ather.pro.domain.charging.ChargeTimeEstimate
+import io.ather.pro.domain.charging.ChargeTimeEstimator
+import com.google.gson.Gson
 
 /**
  * Per-scooter charge-limit preferences (plain private prefs; not credentials).
@@ -19,7 +22,15 @@ class ChargeLimitStore(context: Context) {
         val percent = ChargeLimitController.clampPercent(
             prefs.getInt(keyPercent(vehicleUuid), ChargeLimitController.DEFAULT_PERCENT)
         )
-        if (!enabled) return ChargeLimitController.Snapshot(percent = percent)
+        val power = prefs.getInt("${vehicleUuid}_charger_power", 900)
+            .takeIf { it in ChargeTimeEstimator.CHARGER_POWERS } ?: 900
+        val currentTimingPolicy = prefs.getInt("${vehicleUuid}_timing_policy", 1) >= 2
+        // v1 incorrectly created barriers from connector Off despite Charging.
+        // Its forecasts also used unconverted second counters; rebuild both.
+        val barrier = if (currentTimingPolicy) prefs.getLong("${vehicleUuid}_estimate_barrier", -1L)
+            .takeIf { it > 0 } else null
+        if (!enabled) return ChargeLimitController.Snapshot(percent = percent, chargerPowerW = power,
+            estimateBlockedThroughMs = barrier)
         val status = runCatching {
             ChargeLimitController.Status.valueOf(prefs.getString("${vehicleUuid}_status", "MONITORING")!!)
         }.getOrDefault(ChargeLimitController.Status.MONITORING)
@@ -31,7 +42,14 @@ class ChargeLimitStore(context: Context) {
             pendingSinceMs = prefs.getLong("${vehicleUuid}_pending_since", -1L).takeIf { it > 0 },
             attempts = prefs.getInt("${vehicleUuid}_attempts", 0),
             lastAttemptMs = prefs.getLong("${vehicleUuid}_last_attempt", -1L).takeIf { it > 0 },
-            message = prefs.getString("${vehicleUuid}_message", null)
+            message = prefs.getString("${vehicleUuid}_message", null),
+            chargerPowerW = power,
+            estimate = if (!currentTimingPolicy) null else runCatching {
+                Gson().fromJson(prefs.getString("${vehicleUuid}_estimate", null), ChargeTimeEstimate::class.java)
+                    ?.takeIf { it.isValid() && it.targetPercent == percent && it.chargerPowerW == power }
+            }.getOrNull(),
+            stopWasEstimated = prefs.getBoolean("${vehicleUuid}_estimated_stop", false),
+            estimateBlockedThroughMs = barrier
         )
     }
 
@@ -45,6 +63,11 @@ class ChargeLimitStore(context: Context) {
             .putBoolean("${vehicleUuid}_armed", snapshot.armed)
             .putLong("${vehicleUuid}_pending_since", snapshot.pendingSinceMs ?: -1L)
             .putString("${vehicleUuid}_message", snapshot.message)
+            .putInt("${vehicleUuid}_timing_policy", 2)
+            .putInt("${vehicleUuid}_charger_power", snapshot.chargerPowerW)
+            .putString("${vehicleUuid}_estimate", snapshot.estimate?.let { Gson().toJson(it) })
+            .putBoolean("${vehicleUuid}_estimated_stop", snapshot.stopWasEstimated)
+            .putLong("${vehicleUuid}_estimate_barrier", snapshot.estimateBlockedThroughMs ?: -1L)
             .putInt("${vehicleUuid}_attempts", snapshot.attempts)
             .putLong("${vehicleUuid}_last_attempt", snapshot.lastAttemptMs ?: -1L)
             .commit()

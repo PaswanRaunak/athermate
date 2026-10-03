@@ -185,7 +185,9 @@ data class ScooterTelemetry(
     val softwareVersion: String? = null,
     val connectivityStrength: Int? = null,
     val featureFlags: Map<String, Boolean> = emptyMap(),
-    val remoteChargingAction: String? = null
+    val remoteChargingAction: String? = null,
+    /** Scooter/cloud source time, distinct from when the phone received a snapshot. */
+    val sourceTimestampMs: Long? = null
 ) {
     val isAntiTheftArmed: Boolean?
         get() = featureFlags["anti_theft"] ?: featureFlags["theft_protection"]
@@ -245,7 +247,8 @@ data class ScooterTelemetry(
             softwareVersion = delta.softwareVersion ?: this.softwareVersion,
             connectivityStrength = delta.connectivityStrength ?: this.connectivityStrength,
             featureFlags = mergedFeatureFlags,
-            remoteChargingAction = chargingAware.remoteChargingAction
+            remoteChargingAction = chargingAware.remoteChargingAction,
+            sourceTimestampMs = delta.sourceTimestampMs ?: this.sourceTimestampMs
         )
     }
 }
@@ -278,7 +281,8 @@ enum class TimeWindow(val label: String, val durationMs: Long?) {
     MIN_15("15m", 15 * 60_000L),
     MIN_30("30m", 30 * 60_000L),
     HOUR_1("1h", 60 * 60_000L),
-    TRIP("TRIP", null)
+    HOUR_6("6h", 6 * 60 * 60_000L),
+    HOUR_24("24h", 24 * 60 * 60_000L)
 }
 
 data class TelemetrySample(
@@ -311,6 +315,9 @@ data class ScooterDashboardState(
     val lastUpdated: Long? = null,
     val gpsUpdatedAt: Long? = null,
     val batteryUpdatedAt: Long? = null,
+    /** Timestamp of the actual battery report, including cached reports. */
+    val batteryReportedAt: Long? = null,
+    val chargingRatePercentPerMinute: Double? = null,
     val chargingUpdatedAt: Long? = null,
     val settings: ScooterSettings = ScooterSettings(),
     val recentTrips: List<TripRecord> = emptyList(),

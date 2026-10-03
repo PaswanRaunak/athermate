@@ -37,7 +37,7 @@ object RangeEstimator {
             return listOf(RideModeRange(active.displayName, currentRange, true))
         }
         return if (currentRange != null && activeRange != null) ranges.mapNotNull { mode ->
-            valid(currentRange * mode.km / activeRange)?.let { mode.copy(km = it) }
+            valid(io.ather.pro.domain.computation.TelemetryComputation.requireEngine().scaleRange(currentRange, mode.km, activeRange))?.let { mode.copy(km = it) }
         } else ranges
     }
 
@@ -48,18 +48,9 @@ object RangeEstimator {
         val soc = telemetry?.batterySoc?.takeIf { it.isFinite() && it in 0.0..100.0 } ?: return null
         if (!capacityWh.isFinite() || capacityWh <= 0 || !tariff.isFinite() || tariff < 0) return null
         val percent = target.coerceIn(0, 100).toDouble()
-        val remaining = (percent - soc).coerceAtLeast(0.0)
-        val energy = capacityWh * remaining / 100_000.0
-        // Interpolate from the nearest reported ETA. Charging taper makes this approximate.
-        val eta = when {
-            remaining == 0.0 -> 0.0
-            percent <= 80 && soc < 80 && valid(telemetry.timeToEightyChargeMin) != null ->
-                telemetry.timeToEightyChargeMin!! * remaining / (80.0 - soc)
-            soc < 100 && valid(telemetry.timeToFullChargeMin) != null ->
-                telemetry.timeToFullChargeMin!! * remaining / (100.0 - soc)
-            else -> null
-        }
-        return ChargeTargetEstimate(remaining, energy, energy * tariff,
-            if (soc >= 5) current(telemetry, model)?.let { it * percent / soc } else null, eta)
+        val values = io.ather.pro.domain.computation.TelemetryComputation.requireEngine().chargeEstimate(
+            soc, percent, capacityWh, tariff, current(telemetry, model) ?: Double.NaN,
+            telemetry.timeToEightyChargeMin ?: Double.NaN, telemetry.timeToFullChargeMin ?: Double.NaN)
+        return ChargeTargetEstimate(values[0], values[1], values[2], valid(values[3]), valid(values[4]))
     }
 }

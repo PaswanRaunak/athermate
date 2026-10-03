@@ -108,8 +108,8 @@ class MainActivity : ComponentActivity() {
                             onChargeLimitEnabledChange = { enabled ->
                                 dashboardViewModel.setChargeLimit(enabled, chargeLimit.percent)
                             },
-                            onChargeLimitPercentChange = { percent ->
-                                dashboardViewModel.setChargeLimit(true, percent)
+                            onChargeLimitPercentChange = { percent, power ->
+                                dashboardViewModel.setChargeLimit(true, percent, power)
                             },
                             onChargeLimitRetry = dashboardViewModel::retryChargeLimit,
                             onLogout = authViewModel::logout

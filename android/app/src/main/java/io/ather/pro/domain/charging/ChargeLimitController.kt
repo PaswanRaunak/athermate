@@ -7,8 +7,8 @@ import io.ather.pro.domain.model.ScooterTelemetry
  *
  * Uses the same stop command as Pause at or above the selected percentage.
  * Waits for physical confirmation, with rate-limited retries while still charging.
- * Re-arms only after unplug (later charging session) or a deliberate
- * settings change. Never acts on stale or unplugged frames.
+ * Measured cutoff requires fresh readings. The estimated-time fallback is a
+ * separate policy and shares this persisted command latch and confirmation flow.
  */
 object ChargeLimitController {
     const val MIN_PERCENT = 50
@@ -42,7 +42,12 @@ object ChargeLimitController {
         val armed: Boolean = false,
         val pendingSinceMs: Long? = null,
         val attempts: Int = 0,
-        val lastAttemptMs: Long? = null
+        val lastAttemptMs: Long? = null,
+        val chargerPowerW: Int = 900,
+        val estimate: ChargeTimeEstimate? = null,
+        val stopWasEstimated: Boolean = false,
+        /** A manual pause/resume invalidates readings from before that request. */
+        val estimateBlockedThroughMs: Long? = null
     )
 
     sealed class Decision {
@@ -57,9 +62,11 @@ object ChargeLimitController {
     fun applySettings(
         previous: Snapshot,
         enabled: Boolean,
-        percent: Int
+        percent: Int,
+        chargerPowerW: Int = previous.chargerPowerW
     ): Snapshot {
         val clamped = clampPercent(percent)
+        val power = chargerPowerW.takeIf { it in ChargeTimeEstimator.CHARGER_POWERS } ?: previous.chargerPowerW
         if (!enabled) {
             return Snapshot(
                 enabled = false,
@@ -67,11 +74,13 @@ object ChargeLimitController {
                 status = Status.DISABLED,
                 message = null,
                 armed = false,
-                pendingSinceMs = null
+                pendingSinceMs = null,
+                chargerPowerW = power,
+                estimateBlockedThroughMs = previous.estimateBlockedThroughMs
             )
         }
         val settingsChanged =
-            !previous.enabled || previous.percent != clamped
+            !previous.enabled || previous.percent != clamped || previous.chargerPowerW != power
         if (!settingsChanged) return previous
         return Snapshot(
             enabled = true,
@@ -84,7 +93,9 @@ object ChargeLimitController {
             },
             // Deliberate enable / percent change re-arms for this session.
             armed = true,
-            pendingSinceMs = null
+            pendingSinceMs = null,
+            chargerPowerW = power,
+            estimateBlockedThroughMs = previous.estimateBlockedThroughMs
         )
     }
 
@@ -99,7 +110,8 @@ object ChargeLimitController {
             armed = true,
             pendingSinceMs = null,
             attempts = 0,
-            lastAttemptMs = null
+            lastAttemptMs = null,
+            stopWasEstimated = false
         )
     }
 
@@ -120,6 +132,8 @@ object ChargeLimitController {
                     Snapshot(
                         enabled = false,
                         percent = state.percent,
+                        chargerPowerW = state.chargerPowerW,
+                        estimateBlockedThroughMs = state.estimateBlockedThroughMs,
                         status = Status.DISABLED,
                         message = null,
                         armed = false,
@@ -143,17 +157,19 @@ object ChargeLimitController {
                 return Decision.StateOnly(
                     state.copy(
                         status = Status.ERROR,
-                        message = "Stop not confirmed. Will retry if fresh readings still show charging above ${state.percent}%.",
+                        message = if (state.stopWasEstimated) "Estimated stop sent, but fresh confirmation has not arrived. Check the scooter or tap Retry."
+                            else "Stop not confirmed. Will retry if fresh readings still show charging above ${state.percent}%.",
                         pendingSinceMs = null
                     )
                 )
             }
             if (telemetry != null && chargeFresh && chargingUpdatedMs != null &&
-                chargingUpdatedMs >= started && ChargingEvidence.hasChargeReading(telemetry) && !active) {
+                chargingUpdatedMs > started && ChargingEvidence.hasChargeReading(telemetry) && !active) {
                 return Decision.StateOnly(
                     state.copy(
                         status = Status.CONFIRMED,
-                        message = "Stopped at ${state.percent}% limit. Monitoring remains enabled.",
+                        message = if (state.stopWasEstimated) "Scooter confirmed charging stopped after the estimated cutoff. Final battery percentage may differ from ${state.percent}%."
+                            else "Stopped at ${state.percent}% limit. Monitoring remains enabled.",
                         armed = false,
                         pendingSinceMs = null
                     )
@@ -172,6 +188,7 @@ object ChargeLimitController {
                         state.copy(
                             status = Status.PENDING,
                             message = "Charging restarted above ${state.percent}% (SoC ${soc.toInt()}%). Sending one stop…",
+                            stopWasEstimated = false,
                             armed = false,
                             pendingSinceMs = nowMs,
                             attempts = 1,
@@ -267,6 +284,7 @@ object ChargeLimitController {
                 state.copy(
                     status = Status.PENDING,
                     message = "Limit ${state.percent}% reached (SoC ${soc.toInt()}%). Sending one stop…",
+                    stopWasEstimated = false,
                     armed = false,
                     pendingSinceMs = nowMs,
                     attempts = state.attempts + 1,

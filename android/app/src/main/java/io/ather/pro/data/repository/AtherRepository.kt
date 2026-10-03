@@ -2,11 +2,15 @@ package io.ather.pro.data.repository
 
 import android.content.Context
 import io.ather.pro.data.api.AtherApiClient
+import io.ather.pro.data.api.AtherCloudApi
 import io.ather.pro.data.charging.ChargeLimitStore
 import io.ather.pro.data.local.DashboardLocalStore
 import io.ather.pro.data.local.TripBaseline
 import io.ather.pro.domain.charging.ChargingEvidence
 import io.ather.pro.domain.charging.ChargeLimitController
+import io.ather.pro.domain.charging.ChargeSnapshotRefresh
+import io.ather.pro.domain.charging.ChargingRateTracker
+import io.ather.pro.domain.charging.EstimatedChargeCutoff
 import io.ather.pro.domain.battery.BatteryHistory
 import io.ather.pro.domain.battery.RideHistory
 import io.ather.pro.domain.charging.ChargingControl
@@ -41,18 +45,21 @@ import kotlin.math.roundToInt
 
 class AtherRepository(
     context: Context? = null,
-    remoteChargingGateway: RemoteChargingGateway? = null
+    remoteChargingGateway: RemoteChargingGateway? = null,
+    private val api: AtherCloudApi = AtherApiClient(),
+    repositoryScope: CoroutineScope? = null,
+    private val clock: () -> Long = { System.currentTimeMillis() }
 ) : ScooterRepository {
     private val appContext = context?.applicationContext
     private val localStore: DashboardLocalStore? by lazy { appContext?.let(::DashboardLocalStore) }
     private val preferences = appContext?.getSharedPreferences("ather_dashboard_settings", Context.MODE_PRIVATE)
     private val chargeLimitStore: ChargeLimitStore? = appContext?.let(::ChargeLimitStore)
-    private val api = AtherApiClient()
     private val chargingDispatcher = RemoteChargingDispatcher(
-        gateway = remoteChargingGateway ?: api.asRemoteChargingGateway()
+        gateway = remoteChargingGateway ?: api.asRemoteChargingGateway(),
+        nowMs = clock
     )
     // One application-owned worker serializes telemetry, persistence and command decisions.
-    private val scope = CoroutineScope(SupervisorJob() +
+    private val scope = repositoryScope ?: CoroutineScope(SupervisorJob() +
         Executors.newSingleThreadExecutor { task -> Thread(task, "ather-repository") }.asCoroutineDispatcher())
     private var socket: WebSocket? = null
     private var reconnectJob: Job? = null
@@ -63,12 +70,13 @@ class AtherRepository(
     // WebSocket deltas, so this baseline must not be reset by either field alone.
     private var lastSavedOdo: Double? = null
     private var lastSavedSoc: Double? = null
-    private var lastSavedTimestamp: Long = System.currentTimeMillis()
+    private var lastSavedTimestamp: Long = clock()
     private var lastHistoryPersistAt = 0L
     private var evidence = ChargingEvidence()
+    private val chargeRate = ChargingRateTracker()
     @Volatile private var generation = 0L
     private var reconnectAttempt = 0
-    private var lastChargeRefreshAt = 0L
+    @Volatile private var snapshotConnectedAt: Long? = null
 
     private val _dashboard = MutableStateFlow(ScooterDashboardState(
         settings = ScooterSettings(
@@ -83,7 +91,7 @@ class AtherRepository(
         val restored = localStore?.loadTripBaseline()
         lastSavedOdo = restored?.odometerKm
         lastSavedSoc = restored?.batterySoc
-        lastSavedTimestamp = restored?.timestampMs ?: System.currentTimeMillis()
+        lastSavedTimestamp = restored?.timestampMs ?: clock()
         val trips = localStore?.loadTrips().orEmpty()
         val history = localStore?.loadTelemetryHistory().orEmpty()
         val rides = localStore?.loadRideHistory().orEmpty()
@@ -116,18 +124,20 @@ class AtherRepository(
             while (isActive) {
                 delay(1_000L)
                 tickRemoteChargingTimeouts()
-                if (hasCredentials()) {
-                    val now = System.currentTimeMillis()
-                    processChargeLimit(_dashboard.value.telemetry, now)
-                    if (_chargeLimit.value.enabled && !manuallyDisconnected && now - lastChargeRefreshAt >= 20_000L) {
-                        lastChargeRefreshAt = now
-                        socket?.let(api::subscribe)
-                        // A silent or wedged stream must obtain a new subscription snapshot.
-                        val latestCharge = evidence.chargingAt ?: 0L
-                        if (_dashboard.value.connection == ConnectionStatus.CONNECTED && now - latestCharge > 120_000L) connect()
-                    }
-                }
+                tickChargeMonitoring()
             }
+        }
+    }
+
+    /** Called on the repository worker; a fresh connection also covers quiet sockets. */
+    internal fun tickChargeMonitoring() {
+        if (!hasCredentials() || manuallyDisconnected) return
+        val now = clock()
+        processChargeLimit(now)
+        val state = _dashboard.value
+        // Incoming packets do not postpone the fixed snapshot check.
+        if (ChargeSnapshotRefresh.isDue(true, state.connection, snapshotConnectedAt, now)) {
+            connect(refreshSnapshot = true)
         }
     }
 
@@ -142,6 +152,10 @@ class AtherRepository(
         if (changed) {
             generation += 1
             evidence = ChargingEvidence()
+            chargeRate.reset()
+            _dashboard.update { it.copy(telemetry = null, lastUpdated = null, batteryUpdatedAt = null,
+                chargingUpdatedAt = null, batteryReportedAt = null, chargingRatePercentPerMinute = null,
+                remoteChargingCommand = RemoteChargingCommand()) }
             loadChargeLimitForVehicle(uuid)
         }
         if (changed || socket == null) {
@@ -154,6 +168,7 @@ class AtherRepository(
     fun clearCredentials() {
         generation += 1
         evidence = ChargingEvidence()
+        chargeRate.reset()
         authToken = null
         vehicleUuid = null
         manuallyDisconnected = true
@@ -167,6 +182,7 @@ class AtherRepository(
                 errorMessage = null,
                 telemetry = null,
                 lastUpdated = null, gpsUpdatedAt = null, batteryUpdatedAt = null, chargingUpdatedAt = null,
+                batteryReportedAt = null, chargingRatePercentPerMinute = null,
                 vehicleProfile = null,
                 remoteChargingCommand = RemoteChargingCommand()
             )
@@ -271,18 +287,22 @@ class AtherRepository(
     }
 
     @Synchronized
-    private fun connect() {
+    private fun connect(refreshSnapshot: Boolean = false) {
         val (token, uuid) = requireCredentials() ?: return
         manuallyDisconnected = false
         reconnectJob?.cancel()
         val connectionGeneration = ++generation
         socket?.cancel()
-        _dashboard.update { it.copy(connection = ConnectionStatus.CONNECTING, errorMessage = null) }
-        socket = api.connect(token, uuid, object : AtherApiClient.Listener {
+        snapshotConnectedAt = null
+        _dashboard.update { it.copy(connection = if (refreshSnapshot && it.connection == ConnectionStatus.CONNECTED)
+            ConnectionStatus.CONNECTED else ConnectionStatus.CONNECTING, errorMessage = null) }
+        socket = api.connect(token, uuid, object : AtherCloudApi.Listener {
+            private var receivedSnapshot = false
             override fun onConnected(socket: WebSocket) {
                 if (generation != connectionGeneration || manuallyDisconnected) { socket.cancel(); return }
                 reconnectAttempt = 0
                 this@AtherRepository.socket = socket
+                snapshotConnectedAt = clock()
                 _dashboard.update { it.copy(connection = ConnectionStatus.CONNECTED, errorMessage = null) }
                 api.subscribe(socket)
             }
@@ -290,7 +310,10 @@ class AtherRepository(
             override fun onTelemetry(telemetry: ScooterTelemetry) {
                 scope.launch {
                     storageReady.await()
-                    if (generation == connectionGeneration && !manuallyDisconnected) handleIncomingTelemetry(telemetry)
+                    if (generation == connectionGeneration && !manuallyDisconnected) {
+                        handleIncomingTelemetry(telemetry, snapshot = !receivedSnapshot, expectedGeneration = connectionGeneration)
+                        receivedSnapshot = true
+                    }
                 }
             }
 
@@ -318,10 +341,15 @@ class AtherRepository(
         })
     }
 
-    private fun handleIncomingTelemetry(rawTelemetry: ScooterTelemetry) {
-        val observedAt = System.currentTimeMillis()
-        evidence = evidence.observe(rawTelemetry, observedAt)
+    @Synchronized
+    private fun handleIncomingTelemetry(rawTelemetry: ScooterTelemetry, snapshot: Boolean = false,
+        expectedGeneration: Long = generation) {
+        if (generation != expectedGeneration || manuallyDisconnected) return
+        val observedAt = clock()
         val existingTelemetry = _dashboard.value.telemetry
+        if (rawTelemetry.sourceTimestampMs != null && existingTelemetry?.sourceTimestampMs != null &&
+            rawTelemetry.sourceTimestampMs < existingTelemetry.sourceTimestampMs) return
+        evidence = evidence.observe(rawTelemetry, observedAt, snapshot)
         val mergedTelemetry = existingTelemetry?.mergeWith(rawTelemetry) ?: rawTelemetry
 
         val currentSettings = _dashboard.value.settings
@@ -363,7 +391,7 @@ class AtherRepository(
         // 3. Auto-detect Trips (Algorithm B)
         val previousOdo = lastSavedOdo
         val previousSoc = lastSavedSoc
-        val now = System.currentTimeMillis()
+        val now = clock()
 
         var updatedTrips = _dashboard.value.recentTrips
 
@@ -434,11 +462,14 @@ class AtherRepository(
         val currentCount = _dashboard.value.packetCount + 1
         val updatedTimestamps = (_dashboard.value.recentPacketTimestamps + now).takeLast(60)
 
-        val updatedHistory = BatteryHistory.record(
+        val batterySampleTime = if (rawTelemetry.batterySoc?.let { it.isFinite() && it in 0.0..100.0 } == true)
+            rawTelemetry.sourceTimestampMs ?: if (!snapshot) now else null
+            else null
+        val updatedHistory = if (batterySampleTime != null && now - batterySampleTime in 0L..120_000L) BatteryHistory.record(
             history = _dashboard.value.telemetryHistory,
             report = rawTelemetry,
-            observedAt = now
-        )
+            observedAt = batterySampleTime
+        ) else _dashboard.value.telemetryHistory
 
         val rideHistory = RideHistory.record(_dashboard.value.rideHistory, rawTelemetry, now)
         if (now - lastHistoryPersistAt >= HISTORY_PERSIST_INTERVAL_MS) {
@@ -448,7 +479,10 @@ class AtherRepository(
         }
 
         _dashboard.update {
-            val command = if (ChargingEvidence.hasChargeReading(rawTelemetry)) ChargingControl.advanceCommand(
+            val chargeIsNew = evidence.chargingAt?.let { at ->
+                ChargeLimitController.isFresh(at, now) && at > (it.remoteChargingCommand.requestedAt ?: Long.MAX_VALUE)
+            } == true
+            val command = if (ChargingEvidence.hasChargeReading(rawTelemetry) && chargeIsNew) ChargingControl.advanceCommand(
                 command = it.remoteChargingCommand,
                 telemetry = fullTelemetry,
                 nowMs = now
@@ -457,6 +491,7 @@ class AtherRepository(
                 telemetry = fullTelemetry,
                 lastUpdated = now,
                 batteryUpdatedAt = evidence.batteryAt,
+                batteryReportedAt = batterySampleTime ?: it.batteryReportedAt,
                 chargingUpdatedAt = evidence.chargingAt,
                 gpsUpdatedAt = if (rawTelemetry.gps?.latitude != null && rawTelemetry.gps.longitude != null) now else it.gpsUpdatedAt,
                 recentTrips = updatedTrips,
@@ -467,7 +502,7 @@ class AtherRepository(
                 remoteChargingCommand = command
             )
         }
-        processChargeLimit(fullTelemetry, now)
+        processChargeLimit(now)
     }
 
     private fun loadChargeLimitForVehicle(uuid: String) {
@@ -482,28 +517,44 @@ class AtherRepository(
         return saved
     }
 
-    override fun setChargeLimit(enabled: Boolean, percent: Int) {
+    override fun setChargeLimit(enabled: Boolean, percent: Int, chargerPowerW: Int?) {
         scope.launch {
-            updateChargeLimit(ChargeLimitController.applySettings(_chargeLimit.value, enabled, percent))
-            processChargeLimit(_dashboard.value.telemetry, System.currentTimeMillis())
+            updateChargeLimit(ChargeLimitController.applySettings(_chargeLimit.value, enabled, percent,
+                chargerPowerW ?: _chargeLimit.value.chargerPowerW))
+            processChargeLimit(clock())
         }
     }
 
     override fun retryChargeLimit() {
         scope.launch {
             updateChargeLimit(ChargeLimitController.retry(_chargeLimit.value))
-            processChargeLimit(_dashboard.value.telemetry, System.currentTimeMillis())
+            processChargeLimit(clock())
         }
     }
 
-    private fun processChargeLimit(telemetry: ScooterTelemetry?, nowMs: Long) {
-        val decision = ChargeLimitController.onTelemetry(
+    @Synchronized
+    private fun processChargeLimit(nowMs: Long) {
+        if (!hasCredentials() || manuallyDisconnected) return
+        val dashboard = _dashboard.value
+        val telemetry = dashboard.telemetry
+        val reportedAt = dashboard.batteryReportedAt ?: evidence.batteryAt
+        chargeRate.observe(telemetry, reportedAt, nowMs)
+        if (dashboard.chargingRatePercentPerMinute != chargeRate.percentPerMinute) {
+            _dashboard.update { it.copy(chargingRatePercentPerMinute = chargeRate.percentPerMinute) }
+        }
+        val timed = EstimatedChargeCutoff.refresh(_chargeLimit.value, telemetry, reportedAt, nowMs,
+            dashboard.settings.selectedModel.usableCapacityWh, chargeRate.percentPerMinute)
+        if (timed != _chargeLimit.value && !updateChargeLimit(timed)) return
+        val measuredDecision = ChargeLimitController.onTelemetry(
             state = _chargeLimit.value,
             telemetry = telemetry,
             lastUpdatedMs = evidence.batteryAt,
             nowMs = nowMs,
             chargingUpdatedMs = evidence.chargingAt
         )
+        val decision = if (measuredDecision == ChargeLimitController.Decision.None)
+            EstimatedChargeCutoff.onDeadline(_chargeLimit.value, telemetry, nowMs)
+            else measuredDecision
         when (decision) {
             ChargeLimitController.Decision.None -> Unit
             is ChargeLimitController.Decision.StateOnly -> {
@@ -522,17 +573,21 @@ class AtherRepository(
                     return
                 }
                 val dispatched = requestPause { result ->
-                    result.exceptionOrNull()?.let { error ->
-                        val current = _chargeLimit.value
-                        updateChargeLimit(
-                            if (current.status != ChargeLimitController.Status.PENDING || current.pendingSinceMs != decision.next.pendingSinceMs) current
-                            else current.copy(
-                                status = ChargeLimitController.Status.ERROR,
-                                message = error.message
-                                    ?: "Automatic stop rejected. Tap Retry limit.",
-                                pendingSinceMs = null
-                            )
-                        )
+                    val current = _chargeLimit.value
+                    if (current.status == ChargeLimitController.Status.PENDING &&
+                        current.pendingSinceMs == decision.next.pendingSinceMs) {
+                        updateChargeLimit(result.fold(
+                            onSuccess = {
+                                current.copy(message = if (current.stopWasEstimated)
+                                    "Estimated Pause accepted by Ather; waiting for a new charging reading to confirm the stop."
+                                    else "Pause accepted by Ather; waiting for scooter confirmation.")
+                            },
+                            onFailure = { error ->
+                                current.copy(status = ChargeLimitController.Status.ERROR,
+                                    message = error.message ?: "Automatic stop rejected. Tap Retry limit.",
+                                    pendingSinceMs = null)
+                            }
+                        ))
                     }
                 }
                 if (!dispatched) {
@@ -583,12 +638,8 @@ class AtherRepository(
     override fun refresh() {
         if (_dashboard.value.connection == ConnectionStatus.CONNECTING && socket != null) return
         loadVehicleProfileAndRides()
-        val currentSocket = socket
-        if (currentSocket != null && _dashboard.value.connection == ConnectionStatus.CONNECTED) {
-            api.subscribe(currentSocket)
-        } else {
-            connect()
-        }
+        if (socket != null && _dashboard.value.connection == ConnectionStatus.CONNECTED && snapshotConnectedAt == null) return
+        connect(refreshSnapshot = true)
     }
 
     @Synchronized
@@ -616,13 +667,30 @@ class AtherRepository(
         }
     }
 
-    override fun pauseCharging(): Boolean = requestPause()
+    override fun pauseCharging(): Boolean {
+        val sent = sendRemoteCharging(start = false)
+        if (sent) invalidateChargeEstimateAfterManualCommand(clock())
+        return sent
+    }
 
     /** The limit and the visible Pause button share this exact HTTP command path. */
     private fun requestPause(onHttpResult: ((Result<Unit>) -> Unit)? = null): Boolean =
         sendRemoteCharging(start = false, onHttpResult = onHttpResult)
 
-    override fun resumeCharging(): Boolean = sendRemoteCharging(start = true)
+    override fun resumeCharging(): Boolean {
+        val sent = sendRemoteCharging(start = true)
+        if (sent) invalidateChargeEstimateAfterManualCommand(clock())
+        return sent
+    }
+
+    private fun invalidateChargeEstimateAfterManualCommand(requestedAt: Long) {
+        scope.launch {
+            chargeRate.reset()
+            val state = _chargeLimit.value
+            updateChargeLimit(state.copy(estimate = null,
+                estimateBlockedThroughMs = maxOf(state.estimateBlockedThroughMs ?: 0L, requestedAt)))
+        }
+    }
 
     override fun clearRemoteChargingLatch() {
         _dashboard.update {
@@ -642,7 +710,7 @@ class AtherRepository(
         ) {
             return
         }
-        val view = ChargingControl.resolveView(null, current)
+        val view = ChargingControl.resolveView(null, current, nowMs = clock())
         if (view.command != current) {
             _dashboard.update { it.copy(remoteChargingCommand = view.command) }
         }

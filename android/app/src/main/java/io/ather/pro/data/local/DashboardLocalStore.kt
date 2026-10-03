@@ -16,6 +16,7 @@ data class TripBaseline(
 class DashboardLocalStore(context: Context) {
     private val appContext = context.applicationContext
     private val dao = AtherDatabase.getInstance(appContext).dashboardDao()
+    private var persistedHistoryAt = 0L
 
     init {
         LegacyPrefsMigration.migrateIfNeeded(appContext, dao)
@@ -35,7 +36,7 @@ class DashboardLocalStore(context: Context) {
             .map(TelemetrySampleEntity::toDomain)
             .filter { it.timestamp > 0L && it.speedKmh.isFinite() && it.batterySoc in 0.0..100.0 }
             .sortedBy(TelemetrySample::timestamp)
-            .takeLast(MAX_PERSISTED_SAMPLES)
+            .takeLast(MAX_PERSISTED_SAMPLES).also { persistedHistoryAt = it.lastOrNull()?.timestamp ?: 0L }
 
     fun saveTelemetryHistory(samples: List<TelemetrySample>) {
         val sanitized = samples
@@ -43,7 +44,11 @@ class DashboardLocalStore(context: Context) {
             .sortedBy(TelemetrySample::timestamp)
             .takeLast(MAX_PERSISTED_SAMPLES)
             .map(TelemetrySampleEntity::fromDomain)
-        dao.replaceTelemetryHistory(sanitized)
+        if (sanitized.isEmpty()) return
+        val newSamples = sanitized.filter { it.timestamp > persistedHistoryAt }
+        if (newSamples.isEmpty()) return
+        dao.appendTelemetryHistory(newSamples, sanitized.last().timestamp - io.ather.pro.domain.battery.BatteryHistory.RETENTION_MS)
+        persistedHistoryAt = sanitized.last().timestamp
     }
 
     fun loadRideHistory(): List<RideSample> = dao.loadRideHistory().map(RideSampleEntity::toDomain).takeLast(RideHistory.MAX_SAMPLES)
@@ -60,6 +65,6 @@ class DashboardLocalStore(context: Context) {
 
     companion object {
         const val MAX_TRIPS = 100
-        const val MAX_PERSISTED_SAMPLES = 3_600
+        const val MAX_PERSISTED_SAMPLES = io.ather.pro.domain.battery.BatteryHistory.MAX_SAMPLES
     }
 }
