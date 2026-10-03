@@ -27,8 +27,8 @@
                 android:layout_marginTop="8dp" android:includeFontPadding="false" android:text="@string/widget_range_placeholder"
                 android:textColor="@color/widget_text" android:textSize="14sp" android:maxLines="1" android:ellipsize="end" />
         </LinearLayout>
-        <ImageView android:id="@+id/widget_scooter" android:layout_width="0dp" android:layout_weight="1.15"
-            android:layout_height="match_parent" android:layout_marginStart="4dp" android:src="@drawable/scooter_hero"
+        <ImageView android:id="@+id/widget_energy" android:layout_width="0dp" android:layout_weight="0.9"
+            android:layout_height="match_parent" android:layout_marginStart="8dp"
             android:scaleType="fitCenter" android:importantForAccessibility="no" />
     </LinearLayout>
     <LinearLayout android:id="@+id/widget_details" android:layout_width="match_parent" android:layout_height="wrap_content"

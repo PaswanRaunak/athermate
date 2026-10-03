@@ -11,6 +11,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.outlined.BatteryStd
+import io.ather.pro.domain.charging.ChargeLimitController
+import io.ather.pro.domain.charging.ChargingControl
 import io.ather.pro.domain.model.ConnectionStatus
 import io.ather.pro.domain.model.ScooterDashboardState
 import io.ather.pro.domain.range.RangeEstimator
@@ -41,60 +51,95 @@ fun FreshnessLabel(state: ScooterDashboardState, modifier: Modifier = Modifier) 
 }
 
 @Composable
-fun EnergySummaryCard(state: ScooterDashboardState) {
+fun EnergySummaryCard(state: ScooterDashboardState, limit: ChargeLimitController.Snapshot) {
     val soc = state.telemetry?.batterySoc?.takeIf { it.isFinite() && it in 0.0..100.0 }
     val range = RangeEstimator.current(state.telemetry, state.settings.selectedModel)
-    val charging = io.ather.pro.domain.charging.ChargingControl.isActivelyCharging(state.telemetry)
-    val green = androidx.compose.ui.graphics.Color(0xFF00E89D)
+    val charging = ChargingControl.isActivelyCharging(state.telemetry)
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) { while (true) { now = System.currentTimeMillis(); delay(15_000) } }
+    val readingAt = state.batteryReportedAt ?: state.telemetry?.sourceTimestampMs ?: state.batteryUpdatedAt
+    val fresh = state.connection == ConnectionStatus.CONNECTED && readingAt != null &&
+        now - readingAt in 0L..120_000L
+    val green = Color(0xFF65F6C1)
+    val muted = Color(0xFF9DB4B4)
+    val status = when {
+        charging && fresh -> "Charging"
+        charging -> "Charging · saved"
+        ChargingControl.isPaused(state.telemetry) -> "Paused"
+        soc == null -> "Waiting for data"
+        else -> state.telemetry?.chargingStatus?.takeIf(String::isNotBlank) ?: "Ready to ride"
+    }
     val shape = RoundedCornerShape(28.dp)
     BoxWithConstraints(Modifier.fillMaxWidth()
         .clip(shape)
-        .background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(
-            androidx.compose.ui.graphics.Color(0xFF233038), androidx.compose.ui.graphics.Color(0xFF10191D))))
-        .border(1.dp, androidx.compose.ui.graphics.Color.White.copy(alpha = 0.16f), shape)) {
+        .background(Brush.linearGradient(listOf(Color(0xFF1B3031), Color(0xFF142225), Color(0xFF10191D))))
+        .border(1.dp, Color(0xFF36504B).copy(alpha = 0.7f), shape)) {
         val wide = maxWidth >= 540.dp
-        val batteryTextStyle = if (maxWidth < 350.dp) MaterialTheme.typography.displayMedium else MaterialTheme.typography.displayLarge
-        Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(state.vehicleProfile?.displayName ?: state.settings.selectedModel.displayName.uppercase(),
-                color = androidx.compose.ui.graphics.Color(0xFFBBC8CD),
-                style = MaterialTheme.typography.titleMedium, maxLines = 1)
+        val narrow = maxWidth < 340.dp
+        Column(Modifier.padding(if (narrow) 18.dp else 22.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(if (wide) 0.45f else 0.55f),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Surface(color = if (charging) green.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant,
-                        shape = RoundedCornerShape(50), border = androidx.compose.foundation.BorderStroke(
-                            1.dp, if (charging) green.copy(alpha = 0.6f) else MaterialTheme.colorScheme.outline)) {
-                        Text(if (charging) "ϟ  Charging" else state.telemetry?.chargingStatus ?: "Scooter status",
-                            Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = if (charging) green else MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Text("${number(soc)}%", style = batteryTextStyle,
-                        fontWeight = FontWeight.Black, maxLines = 1,
-                        color = androidx.compose.ui.graphics.Color.White)
-                    Text("${number(range)} km range", style = MaterialTheme.typography.titleMedium,
-                        color = androidx.compose.ui.graphics.Color.White)
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("YOUR ENERGY", color = muted, style = MaterialTheme.typography.labelSmall,
+                        letterSpacing = 1.8.sp)
+                    Text(state.vehicleProfile?.displayName ?: state.settings.selectedModel.displayName,
+                        color = Color(0xFFE7F2ED), style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                Box(Modifier.weight(if (wide) 0.55f else 0.45f).height(if (wide) 220.dp else 170.dp),
-                    contentAlignment = Alignment.Center) {
-                    if (charging) Box(Modifier.fillMaxSize().background(
-                        androidx.compose.ui.graphics.Brush.radialGradient(listOf(
-                            green.copy(alpha = 0.18f), androidx.compose.ui.graphics.Color.Transparent))))
-                    androidx.compose.foundation.Image(
-                        painter = androidx.compose.ui.res.painterResource(io.ather.pro.R.drawable.scooter_hero),
-                        contentDescription = null, modifier = Modifier.fillMaxSize(),
-                        contentScale = androidx.compose.ui.layout.ContentScale.Fit)
+                Surface(color = Color.White.copy(alpha = 0.035f), shape = RoundedCornerShape(12.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.07f))) {
+                    Icon(Icons.Outlined.BatteryStd, null, Modifier.padding(10.dp).size(18.dp), tint = green)
                 }
             }
-            LinearProgressIndicator(progress = { ((soc ?: 0.0) / 100).toFloat() },
-                modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(50)),
-                color = green, trackColor = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.12f))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(soc?.let { "${number(it, 2)}% measured" } ?: "Waiting for battery reading",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.labelMedium)
-                state.telemetry?.mode?.let { Text(it, color = green,
-                    style = MaterialTheme.typography.labelMedium) }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Surface(color = if (charging && fresh) green.copy(alpha = 0.1f) else Color.White.copy(alpha = 0.04f),
+                        shape = RoundedCornerShape(50)) {
+                        Row(Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            if (charging) Icon(Icons.Default.Bolt, null, Modifier.size(14.dp),
+                                tint = if (fresh) green else muted)
+                            Text(status, style = MaterialTheme.typography.labelMedium,
+                                color = if (charging && fresh) green else muted,
+                                maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Text(number(soc), color = Color(0xFFF2FFF8), fontSize = if (narrow) 52.sp else 64.sp,
+                            lineHeight = if (narrow) 56.sp else 68.sp,
+                            fontWeight = FontWeight.SemiBold, letterSpacing = (-2).sp, maxLines = 1)
+                        if (soc != null) Text("%", Modifier.padding(start = 2.dp, bottom = 7.dp),
+                            fontSize = 26.sp, color = muted, fontWeight = FontWeight.Medium)
+                    }
+                    Text(soc?.let { "${number(it, 2)}% reported" } ?: "Battery unavailable",
+                        color = muted, style = MaterialTheme.typography.bodySmall)
+                }
+                EnergyBatteryVisual(soc, charging, fresh, limit.percent.takeIf { limit.enabled },
+                    Modifier.size(if (wide) 208.dp else if (narrow) 128.dp else 156.dp))
+            }
+            HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("RANGE", color = muted, style = MaterialTheme.typography.labelSmall, letterSpacing = 1.sp)
+                    Text("${number(range)} km", color = Color(0xFFE7F2ED),
+                        style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Medium)
+                }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("CHARGE LIMIT", color = muted, style = MaterialTheme.typography.labelSmall, letterSpacing = 1.sp)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        if (limit.enabled) Box(Modifier.size(5.dp).clip(RoundedCornerShape(50)).background(Color(0xFFFFD38A)))
+                        Text(if (limit.enabled) "${limit.percent}%" else "Off", color = if (limit.enabled) green else muted,
+                            style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Medium)
+                    }
+                }
+            }
+            if (limit.enabled && limit.armed && limit.status == ChargeLimitController.Status.MONITORING) {
+                limit.estimate?.let { estimate ->
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Icon(Icons.Default.Schedule, null, Modifier.size(14.dp), tint = muted)
+                        Text("Est. pause ${DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(estimate.stopAtMs))} · Approximate",
+                            style = MaterialTheme.typography.bodySmall, color = muted)
+                    }
+                }
             }
         }
     }

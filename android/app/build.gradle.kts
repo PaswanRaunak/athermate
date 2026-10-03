@@ -13,8 +13,8 @@ android {
         applicationId = "io.ather.pro"
         minSdk = 26
         targetSdk = 34
-        versionCode = 8
-        versionName = "1.1.6-local"
+        versionCode = 11
+        versionName = "1.1.9-local"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

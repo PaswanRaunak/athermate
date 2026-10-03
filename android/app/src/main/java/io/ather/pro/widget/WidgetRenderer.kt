@@ -1,10 +1,13 @@
 package io.ather.pro.widget
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.util.TypedValue
 import android.view.View
 import android.widget.RemoteViews
 import io.ather.pro.R
+import io.ather.pro.ui.visuals.BatteryArtwork
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -19,6 +22,11 @@ object WidgetRenderer {
         val accent = context.getColor(R.color.widget_accent)
         val primary = context.getColor(R.color.widget_text)
         val secondary = context.getColor(R.color.widget_secondary)
+        val artworkSize = (156 * context.resources.displayMetrics.density).roundToInt().coerceIn(192, 512)
+        val artwork = Bitmap.createBitmap(artworkSize, artworkSize, Bitmap.Config.ARGB_8888)
+        BatteryArtwork().draw(Canvas(artwork), artworkSize.toFloat(), artworkSize.toFloat(),
+            snapshot.socPercent, snapshot.charging && snapshot.connectionLabel == "LIVE" &&
+                now - snapshot.updatedAtMs in 0L..120_000L, snapshot.limitPercent)
         fun dp(value: Int) = (value * context.resources.displayMetrics.density).roundToInt()
         val status = when {
             snapshot.updatedAtMs == 0L -> "Open app"
@@ -37,6 +45,7 @@ object WidgetRenderer {
             setTextViewTextSize(R.id.widget_range, TypedValue.COMPLEX_UNIT_SP, if (roomy) 14f else 12f)
             val heroPadding = dp(if (roomy) 10 else 3)
             setViewPadding(R.id.widget_hero, 0, heroPadding, 0, heroPadding)
+            setImageViewBitmap(R.id.widget_energy, artwork)
             setTextViewText(R.id.widget_title, snapshot.vehicleName)
             setProgressBar(R.id.widget_battery_bar, 100, (snapshot.socPercent ?: 0.0).roundToInt().coerceIn(0, 100), false)
             setTextViewText(R.id.widget_charge_limit, snapshot.chargeLabel)

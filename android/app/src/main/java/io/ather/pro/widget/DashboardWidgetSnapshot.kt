@@ -24,7 +24,8 @@ data class DashboardWidgetSnapshot(
     val chargeLabel: String = "Limit off",
     val charging: Boolean = false,
     val currentMode: String? = null,
-    val vehicleName: String = "ATHR+"
+    val vehicleName: String = "ATHR+",
+    val limitPercent: Int? = null
 ) {
     val socText: String
         get() = socPercent?.let { String.format(Locale.getDefault(), "%.0f%%", it) } ?: "—"
@@ -76,7 +77,8 @@ data class DashboardWidgetSnapshot(
                 } else "Limit off",
                 charging = ChargingControl.isActivelyCharging(telemetry),
                 currentMode = RideMode.from(telemetry?.mode)?.takeIf { it.supportedBy(model) }?.displayName,
-                vehicleName = state.vehicleProfile?.displayName ?: model.displayName
+                vehicleName = state.vehicleProfile?.displayName ?: model.displayName,
+                limitPercent = limit.percent.takeIf { limit.enabled }
             )
         }
 
@@ -97,7 +99,8 @@ data class DashboardWidgetSnapshot(
                 chargeLabel = prefs.getString("charge_label", "Limit off").orEmpty(),
                 charging = prefs.getBoolean("charging", false),
                 currentMode = prefs.getString("current_mode", null),
-                vehicleName = prefs.getString("vehicle_name", "ATHR+") ?: "ATHR+"
+                vehicleName = prefs.getString("vehicle_name", "ATHR+") ?: "ATHR+",
+                limitPercent = prefs.getInt("limit_percent", -1).takeIf { it in 0..100 }
             )
         }
 
@@ -122,7 +125,7 @@ data class DashboardWidgetSnapshot(
                     putString("mode_ranges_v2", Gson().toJson(snapshot.modeRanges))
                     remove("history")
                     putString("charge_label", snapshot.chargeLabel)
-                    remove("limit_percent")
+                    putInt("limit_percent", snapshot.limitPercent ?: -1)
                     putBoolean("charging", snapshot.charging)
                     putString("current_mode", snapshot.currentMode)
                     putString("vehicle_name", snapshot.vehicleName)

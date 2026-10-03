@@ -1,7 +1,11 @@
-# Scooter artwork
+# Energy artwork
 
-Generated with the Codex imagegen tool, using the supplied dashboard reference for the vehicle shape and lighting. Saved at `android/app/src/main/res/drawable-nodpi/scooter_hero.webp` with transparent alpha. The depicted scooter is illustrative; telemetry and vehicle names come from the account.
+The dashboard and widgets use a model-independent battery visual drawn by `ui/visuals/BatteryArtwork.kt`. It replaces the illustrative 450X image. The scooter name still comes from the profile or selected model; the artwork works for any model without image mappings.
 
-Prompt:
+The battery fill and outer ring use the reported state of charge. An amber marker indicates the enabled limit, matching the limit label below the dashboard hero. Missing readings leave the battery empty without implying a measured 0%. The launcher icon uses the same battery and emerald palette.
 
-> Create one isolated photorealistic Ather 450X-style electric scooter, closely matching the scooter shape in the supplied reference. Full vehicle including both wheels, handlebar, mirrors, seat and floorboard. Facing toward the left in a side/front three-quarter view. Stealth deep blue/graphite body panels, black seat, dark wheels, restrained yellow trim accents. Clean realistic materials and soft studio highlights so the vehicle is readable on dark and light cards. One scooter centered, landscape composition, entire vehicle visible with clear margins. No charging cord, no wall charger, no floor, no environment, no people, no battery meter or UI. No green glow: charging effects will be added by the app only when actually charging. Preserve recognizable reference geometry. Genuinely transparent alpha. No text, no added slogans, no watermark.
+Charging adds a small energy flow and soft surface sheen; it never animates the reported percentage upwards. Motion runs only when the dashboard is visible, the activity is resumed, system animations are enabled, and the connected battery report is no more than two minutes old. Saved charging readings are labelled as saved and do not animate. Paused/stopped states remain still.
+
+Widgets render the same artwork into a static bitmap when their existing snapshot updater runs. They do not have an animation timer or extra API requests. This visual change does not alter charge-limit decisions, polling intervals, credentials, or remote command dispatch.
+
+The earlier scooter artwork and its generation prompt remain available in the checkpoint commit before this redesign.

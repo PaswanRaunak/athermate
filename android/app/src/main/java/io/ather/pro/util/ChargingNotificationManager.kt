@@ -194,7 +194,7 @@ class ChargingNotificationManager private constructor(private val context: Conte
         timeToFull: Double? = null
     ): Notification {
         val socInt = soc?.roundToInt()?.coerceIn(0, 100)
-        val title = if (socInt != null) "Ather 450X Charging — $socInt%" else "Ather 450X Charging"
+        val title = if (socInt != null) "Athr+ Charging — $socInt%" else "Athr+ Charging"
         val contentText = when {
             socInt != null && socInt < 80 && timeToEighty != null && timeToEighty > 0.0 -> {
                 val eta80 = timeToEighty.roundToInt()
@@ -239,7 +239,7 @@ class ChargingNotificationManager private constructor(private val context: Conte
         val pendingIntent = createDashboardPendingIntent(NOTIFICATION_ID_ALERT_80)
         val notification = NotificationCompat.Builder(appContext, CHANNEL_ALERTS_ID)
             .setSmallIcon(android.R.drawable.ic_lock_idle_charging)
-            .setContentTitle("Ather 450X — 80% Charged")
+            .setContentTitle("Athr+ — 80% Charged")
             .setContentText("Optimal battery health limit reached (80%).")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setOnlyAlertOnce(true)
@@ -256,7 +256,7 @@ class ChargingNotificationManager private constructor(private val context: Conte
         val pendingIntent = createDashboardPendingIntent(NOTIFICATION_ID_ALERT_100)
         val notification = NotificationCompat.Builder(appContext, CHANNEL_ALERTS_ID)
             .setSmallIcon(android.R.drawable.ic_lock_idle_charging)
-            .setContentTitle("Ather 450X — Fully Charged")
+            .setContentTitle("Athr+ — Fully Charged")
             .setContentText("Battery reached 100%. Vehicle is ready to ride.")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setOnlyAlertOnce(true)
