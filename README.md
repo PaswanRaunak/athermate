@@ -12,9 +12,17 @@
 
 Requires Android 8.0 or newer. Download the `Athr+-v1.1.15-release.apk` asset and install it over your existing Athr+ app. Android may ask you to allow installation from your browser or file manager. Keep the existing app installed to retain your login, settings, and history.
 
-Version **1.1.15 (build 17)** is a signed, non-debuggable release with R8 code optimization and resource shrinking. Its signing certificate matches the previous public v1.1.2 APK; the APK file checksum changes with each release.
+Version **1.1.15 (build 18)** is a signed, non-debuggable release with R8 code optimization and resource shrinking. Its signing certificate matches the previous public v1.1.2 APK; the APK file checksum changes with each release.
 
 This version adds update notices inside the app. Users on v1.1.2 need to install this release manually once. Future published stable releases appear in the app, with release notes, a download button, and Android's installation confirmation. You can also use **Settings → App updates → Check now**. Checks run on opening the app at most once every six hours and approximately daily in the background; Android may delay background work. A source push alone does not trigger an app update.
+
+## Support the project
+
+If you find the app useful, consider supporting the project.
+
+**UPI:** `karmugilrc-1@okaxis`
+
+In the app, open **Settings → Support the project → Support via UPI** to choose an installed UPI payment app. You can also copy the UPI ID and pay directly in your preferred app.
 
 ## Why This Project Exists
 

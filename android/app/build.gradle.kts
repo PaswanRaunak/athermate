@@ -13,7 +13,7 @@ android {
         applicationId = "io.ather.pro"
         minSdk = 26
         targetSdk = 34
-        versionCode = providers.gradleProperty("athrVersionCode").orNull?.toInt() ?: 17
+        versionCode = providers.gradleProperty("athrVersionCode").orNull?.toInt() ?: 18
         versionName = providers.gradleProperty("athrVersionName").orNull ?: "1.1.15"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

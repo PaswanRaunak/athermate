@@ -98,6 +98,7 @@ internal fun SettingsScreen(
                 }
             }
         }
+        item { ProjectSupportCard() }
         item {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {

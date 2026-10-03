@@ -8,7 +8,7 @@ Only users who have installed a version containing this updater get these notice
 
 ## Publishing subsequent versions
 
-1. Increase `versionCode` in `android/app/build.gradle.kts` above every distributed build, including local builds. The current public release v1.1.15 is code **17**, so the next update must be at least **18**. Use a stable version tag such as `v1.1.16`.
+1. Increase `versionCode` in `android/app/build.gradle.kts` above every distributed build, including local builds. The current public release v1.1.15 is code **18**, so the next update must be at least **19**. Use a stable version tag such as `v1.1.16`.
 2. Build and package locally with the original signing key, commit your reviewed app changes, and push the version tag. Upload the APK, checksum, and `update.json` to a **draft** release. Alternatively, the optional signing workflow prepares the draft when configured as described below.
 3. Review the draft’s notes and APK, then publish the release as **Latest**. Apps detect it on their next automatic or manual check.
 
@@ -38,7 +38,7 @@ The signing certificate identifies the publisher and is public. The APK SHA-256 
 Set `ATHR_SIGNING_STORE` to the original keystore’s absolute path (on the current machine, `~/.android/debug.keystore`), plus the three alias/password variables above. Keep these in your shell or a file outside the repository. Then:
 
 ```sh
-# Example for the next release, after increasing the source versionCode to 18:
+# Example for the next release, after increasing the source versionCode to 19:
 JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./android/gradlew -p android assembleRelease \
   -PathrVersionName=1.1.16 --console=plain
 JAVA_HOME=/usr/lib/jvm/java-21-openjdk python3 scripts/prepare-release.py android/app/build/outputs/apk/release/app-release.apk
