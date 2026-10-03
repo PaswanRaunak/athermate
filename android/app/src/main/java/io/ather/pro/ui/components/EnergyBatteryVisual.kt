@@ -8,6 +8,8 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -22,7 +24,12 @@ import io.ather.pro.ui.visuals.BatteryArtwork
 @Composable
 internal fun EnergyBatteryVisual(soc: Double?, charging: Boolean, fresh: Boolean,
     limitPercent: Int?, modifier: Modifier = Modifier) {
-    val artwork = remember { BatteryArtwork() }
+    val colors = MaterialTheme.colorScheme
+    val artwork = remember(colors) {
+        BatteryArtwork(colors.primary.toArgb(), colors.onPrimary.toArgb(), colors.surface.toArgb(),
+            colors.surfaceContainerHigh.toArgb(), colors.onSurface.toArgb(), colors.outlineVariant.toArgb(),
+            colors.tertiary.toArgb(), colors.error.toArgb(), colors.onError.toArgb())
+    }
     val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
     val animate = charging && fresh && lifecycle.isAtLeast(Lifecycle.State.RESUMED) &&
         ValueAnimator.areAnimatorsEnabled()

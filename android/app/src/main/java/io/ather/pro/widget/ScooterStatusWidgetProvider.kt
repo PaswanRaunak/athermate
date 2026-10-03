@@ -51,6 +51,7 @@ class ScooterStatusWidgetProvider : AppWidgetProvider() {
         private const val ACTION_REFRESH = "io.ather.pro.widget.REFRESH"
         @Suppress("DEPRECATION")
         fun updateAppWidget(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int) {
+            // Use the current configuration (wallpaper palette, locale, font size and dark mode).
             val snapshot = DashboardWidgetSnapshot.load(context)
             val options = appWidgetManager.getAppWidgetOptions(appWidgetId)
             val launch = Intent(context, MainActivity::class.java).apply {
@@ -68,14 +69,14 @@ class ScooterStatusWidgetProvider : AppWidgetProvider() {
             }
             val sizes = if (Build.VERSION.SDK_INT >= 31)
                 options.getParcelableArrayList<SizeF>(AppWidgetManager.OPTION_APPWIDGET_SIZES).orEmpty()
-                    .filter { it.width > 0 && it.height > 0 }.distinct().take(16) else emptyList()
+                    .filter { it.width.isFinite() && it.height.isFinite() && it.width > 0 && it.height > 0 }.distinct().take(16) else emptyList()
             val views = if (Build.VERSION.SDK_INT >= 31 && sizes.isNotEmpty()) {
                 RemoteViews(sizes.associateWith { render(it.width, it.height) })
             } else {
-                val minWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 250).toFloat()
-                val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 320).toFloat()
-                val maxWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, minWidth.toInt()).toFloat()
-                val maxHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, minHeight.toInt()).toFloat()
+                val minWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 250).coerceAtLeast(110).toFloat()
+                val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 180).coerceAtLeast(110).toFloat()
+                val maxWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, minWidth.toInt()).coerceAtLeast(minWidth.toInt()).toFloat()
+                val maxHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, minHeight.toInt()).coerceAtLeast(minHeight.toInt()).toFloat()
                 RemoteViews(render(maxWidth, minHeight), render(minWidth, maxHeight))
             }
             appWidgetManager.updateAppWidget(appWidgetId, views)

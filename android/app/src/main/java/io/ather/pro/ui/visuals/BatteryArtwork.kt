@@ -1,5 +1,6 @@
 package io.ather.pro.ui.visuals
 
+import androidx.core.graphics.ColorUtils
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.LinearGradient
@@ -12,8 +13,18 @@ import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
 
-/** Shared vector artwork for Compose and static widget bitmaps. No vehicle-specific assets. */
-class BatteryArtwork {
+/** Native battery artwork using Material color roles; no vehicle-specific assets. */
+class BatteryArtwork(
+    private val primary: Int,
+    private val onPrimary: Int,
+    private val surface: Int,
+    private val container: Int,
+    private val onSurface: Int,
+    private val outline: Int,
+    private val tertiary: Int,
+    private val error: Int,
+    private val onError: Int
+) {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val ring = RectF(28f, 18f, 212f, 202f)
     private val body = RectF(82f, 52f, 158f, 164f)
@@ -24,17 +35,17 @@ class BatteryArtwork {
         lineTo(114f, 131f); lineTo(135f, 104f); lineTo(122f, 104f); close()
     }
     private val shell = LinearGradient(82f, 52f, 160f, 164f,
-        intArrayOf(0xFF35444B.toInt(), 0xFF19262C.toInt(), 0xFF0D191E.toInt()), null, Shader.TileMode.CLAMP)
+        intArrayOf(container, ColorUtils.blendARGB(container, surface, .5f), surface), null, Shader.TileMode.CLAMP)
     private val shellEdge = LinearGradient(82f, 52f, 158f, 164f,
-        intArrayOf(0xFF81999B.toInt(), 0xFF334D50.toInt(), 0xFF53716D.toInt()), null, Shader.TileMode.CLAMP)
+        intArrayOf(outline, ColorUtils.blendARGB(outline, surface, .5f), outline), null, Shader.TileMode.CLAMP)
     private val energy = LinearGradient(90f, 60f, 150f, 156f,
-        intArrayOf(0xFF6DFAC1.toInt(), 0xFF20DDA5.toInt(), 0xFF008E78.toInt()), null, Shader.TileMode.CLAMP)
+        intArrayOf(ColorUtils.blendARGB(primary, onSurface, .15f), primary, ColorUtils.blendARGB(primary, surface, .3f)), null, Shader.TileMode.CLAMP)
     private val lowEnergy = LinearGradient(90f, 60f, 150f, 156f,
-        0xFFFFC77A.toInt(), 0xFFE58751.toInt(), Shader.TileMode.CLAMP)
+        error, ColorUtils.blendARGB(error, surface, .3f), Shader.TileMode.CLAMP)
     private val halo = RadialGradient(120f, 110f, 110f,
-        intArrayOf(0x2600E89D, 0x0E00E89D, Color.TRANSPARENT), null, Shader.TileMode.CLAMP)
+        intArrayOf(ColorUtils.setAlphaComponent(primary, 38), ColorUtils.setAlphaComponent(primary, 14), Color.TRANSPARENT), null, Shader.TileMode.CLAMP)
     private val arc = LinearGradient(28f, 202f, 212f, 18f,
-        0xFF009B85.toInt(), 0xFF72FFD0.toInt(), Shader.TileMode.CLAMP)
+        ColorUtils.blendARGB(primary, surface, .3f), primary, Shader.TileMode.CLAMP)
 
     private fun ink(color: Int, stroke: Float = 0f, shader: Shader? = null, alpha: Int = 255): Paint {
         paint.color = color
@@ -50,22 +61,22 @@ class BatteryArtwork {
         limitPercent: Int? = null, phase: Float = 0f) {
         val level = soc?.takeIf { it.isFinite() && it in 0.0..100.0 }?.toFloat()?.div(100f)
         val low = level != null && level < 0.2f
-        val accent = if (low) 0xFFFFBD78.toInt() else 0xFF50F2BB.toInt()
+        val accent = if (low) error else primary
         val scale = min(width, height) / 240f
         val saved = canvas.save()
         canvas.translate((width - 240f * scale) / 2, (height - 240f * scale) / 2)
         canvas.scale(scale, scale)
 
         canvas.drawCircle(120f, 110f, 110f, ink(Color.WHITE, shader = halo))
-        canvas.drawCircle(120f, 110f, 104f, ink(0x0DDBFFF2, stroke = 1f))
+        canvas.drawCircle(120f, 110f, 104f, ink(ColorUtils.setAlphaComponent(onSurface, 13), stroke = 1f))
         repeat(24) { index ->
             val angle = Math.toRadians(index * 15.0 - 90.0)
             val inner = if (index % 6 == 0) 98f else 101f
             canvas.drawLine(120f + cos(angle).toFloat() * inner, 110f + sin(angle).toFloat() * inner,
                 120f + cos(angle).toFloat() * 104f, 110f + sin(angle).toFloat() * 104f,
-                ink(0x35718C86, stroke = 1.2f))
+                ink(ColorUtils.setAlphaComponent(outline, 53), stroke = 1.2f))
         }
-        canvas.drawArc(ring, -90f, 360f, false, ink(0xFF293D3C.toInt(), stroke = 3.5f))
+        canvas.drawArc(ring, -90f, 360f, false, ink(outline, stroke = 3.5f))
         if (level != null && level > 0) {
             canvas.drawArc(ring, -90f, 360f * level, false,
                 ink(accent, stroke = 3.5f, shader = if (low) null else arc))
@@ -73,21 +84,21 @@ class BatteryArtwork {
             val x = 120f + cos(end).toFloat() * 92f
             val y = 110f + sin(end).toFloat() * 92f
             canvas.drawCircle(x, y, 6f, ink(accent, alpha = 28))
-            canvas.drawCircle(x, y, 2.8f, ink(0xFFE1FFF3.toInt()))
+            canvas.drawCircle(x, y, 2.8f, ink(onSurface))
         }
         limitPercent?.coerceIn(0, 100)?.let { limit ->
             val angle = Math.toRadians(limit * 3.6 - 90.0)
             canvas.drawLine(120f + cos(angle).toFloat() * 86f, 110f + sin(angle).toFloat() * 86f,
                 120f + cos(angle).toFloat() * 99f, 110f + sin(angle).toFloat() * 99f,
-                ink(0xFFFFD38A.toInt(), stroke = 2.4f))
+                ink(tertiary, stroke = 2.4f))
         }
 
         canvas.drawRoundRect(87f, 56f, 163f, 170f, 20f, 20f, ink(0x55000000))
-        canvas.drawRoundRect(106f, 44f, 134f, 54f, 4f, 4f, ink(0xFF698681.toInt()))
-        canvas.drawRoundRect(110f, 45f, 130f, 49f, 2f, 2f, ink(0xFFB8D4C9.toInt()))
+        canvas.drawRoundRect(106f, 44f, 134f, 54f, 4f, 4f, ink(outline))
+        canvas.drawRoundRect(110f, 45f, 130f, 49f, 2f, 2f, ink(onSurface))
         canvas.drawRoundRect(body, 20f, 20f, ink(Color.WHITE, shader = shell))
         canvas.drawRoundRect(body, 20f, 20f, ink(Color.WHITE, stroke = 1.4f, shader = shellEdge))
-        canvas.drawRoundRect(cell, 12f, 12f, ink(0xFF101E22.toInt()))
+        canvas.drawRoundRect(cell, 12f, 12f, ink(surface))
         val clipped = canvas.save()
         canvas.clipPath(clip)
         if (level != null) {
@@ -95,7 +106,7 @@ class BatteryArtwork {
             canvas.drawRect(cell.left, top, cell.right, cell.bottom,
                 ink(Color.WHITE, shader = if (low) lowEnergy else energy))
             if (level > 0) canvas.drawLine(cell.left, top, cell.right, top,
-                ink(0xFFCBFFEC.toInt(), stroke = 1.2f))
+                ink(ColorUtils.blendARGB(accent, onSurface, .3f), stroke = 1.2f))
             if (charging && level > 0) {
                 val shineY = cell.bottom - phase * cell.height()
                 canvas.clipRect(cell.left, top, cell.right, cell.bottom)
@@ -105,21 +116,21 @@ class BatteryArtwork {
         }
         repeat(4) { index ->
             val y = cell.top + cell.height() * (index + 1) / 5
-            canvas.drawLine(cell.left, y, cell.right, y, ink(0x240A2421, stroke = 1.2f))
+            canvas.drawLine(cell.left, y, cell.right, y, ink(ColorUtils.setAlphaComponent(surface, 70), stroke = 1.2f))
         }
         canvas.drawRect(91f, 60f, 99f, 156f, ink(0x15FFFFFF))
         canvas.restoreToCount(clipped)
-        canvas.drawRoundRect(cell, 12f, 12f, ink(0x287AFAD0, stroke = 1f))
+        canvas.drawRoundRect(cell, 12f, 12f, ink(ColorUtils.setAlphaComponent(primary, 40), stroke = 1f))
         if (charging) {
-            canvas.drawPath(bolt, ink(0xEFFFFFFF.toInt()))
-            canvas.drawLine(120f, 174f, 120f, 198f, ink(0x3045EAB6, stroke = 1.6f))
+            canvas.drawPath(bolt, ink(if (low) onError else onPrimary))
+            canvas.drawLine(120f, 174f, 120f, 198f, ink(ColorUtils.setAlphaComponent(primary, 48), stroke = 1.6f))
             repeat(3) { index ->
                 val travel = (phase + index / 3f) % 1f
                 canvas.drawCircle(120f, 198f - travel * 24f, 1.8f,
                     ink(accent, alpha = (sin(travel * Math.PI) * 180).toInt().coerceIn(0, 180)))
             }
         } else {
-            canvas.drawRoundRect(112f, 175f, 128f, 178f, 1.5f, 1.5f, ink(0x507A9690))
+            canvas.drawRoundRect(112f, 175f, 128f, 178f, 1.5f, 1.5f, ink(ColorUtils.setAlphaComponent(outline, 80)))
         }
         canvas.restoreToCount(saved)
     }

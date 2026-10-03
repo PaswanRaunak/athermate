@@ -16,12 +16,14 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import io.ather.pro.data.auth.AuthSession
+import io.ather.pro.domain.update.AppUpdateState
 import io.ather.pro.domain.charging.ChargeLimitController
 import io.ather.pro.domain.model.ScooterDashboardState
 import io.ather.pro.domain.model.ScooterModel
 import io.ather.pro.domain.monitoring.MonitoringState
 import io.ather.pro.ui.components.ChargeEstimateCard
 import io.ather.pro.ui.components.FreshnessLabel
+import io.ather.pro.ui.update.AppUpdateBanner
 
 private enum class Destination(val label: String, val icon: ImageVector) {
     HOME("Home", Icons.Default.Home), CHARGING("Charging", Icons.Default.BatteryChargingFull),
@@ -31,6 +33,9 @@ private enum class Destination(val label: String, val icon: ImageVector) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AtherAppShell(
+    updateState: AppUpdateState,
+    onCheckUpdate: () -> Unit,
+    onOpenUpdate: () -> Unit,
     session: AuthSession,
     dashboard: ScooterDashboardState,
     chargeLimit: ChargeLimitController.Snapshot,
@@ -72,25 +77,28 @@ fun AtherAppShell(
             }
         }
     ) { padding ->
-        Box(Modifier.fillMaxSize().padding(padding)) {
-            stateHolder.SaveableStateProvider(selected.name) {
-                when (selected) {
-                    Destination.HOME -> AtherDashboardScreen(dashboard, chargeLimit,
-                        onOpenCharging = { selected = Destination.CHARGING }, onOpenMap = { selected = Destination.MAP }, onClearTrips)
-                    Destination.CHARGING -> LazyColumn(contentPadding = PaddingValues(18.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                        item { FreshnessLabel(dashboard) }
-                        item { ChargeLimitCard(chargeLimit, dashboard, onChargeLimitEnabledChange, onChargeLimitPercentChange, onChargeLimitRetry) }
-                        item { ChargeEstimateCard(dashboard, chargeLimit.percent) }
-                        item { ChargingActions(dashboard.telemetry, dashboard.remoteChargingCommand,
-                            onPauseCharging, onResumeCharging, onRetryLatch = onClearRemoteChargingLatch) }
-                        item { MonitoringCard(monitoring, chargeLimit.enabled, onMonitoringChange) }
+        Column(Modifier.fillMaxSize().padding(padding)) {
+            AppUpdateBanner(updateState, onOpenUpdate)
+            Box(Modifier.weight(1f)) {
+                stateHolder.SaveableStateProvider(selected.name) {
+                    when (selected) {
+                        Destination.HOME -> AtherDashboardScreen(dashboard, chargeLimit,
+                            onOpenCharging = { selected = Destination.CHARGING }, onOpenMap = { selected = Destination.MAP }, onClearTrips)
+                        Destination.CHARGING -> LazyColumn(contentPadding = PaddingValues(18.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            item { FreshnessLabel(dashboard) }
+                            item { ChargeLimitCard(chargeLimit, dashboard, onChargeLimitEnabledChange, onChargeLimitPercentChange, onChargeLimitRetry) }
+                            item { ChargeEstimateCard(dashboard, chargeLimit.percent) }
+                            item { ChargingActions(dashboard.telemetry, dashboard.remoteChargingCommand,
+                                onPauseCharging, onResumeCharging, onRetryLatch = onClearRemoteChargingLatch) }
+                            item { MonitoringCard(monitoring, chargeLimit.enabled, onMonitoringChange) }
+                        }
+                        Destination.MAP -> LazyColumn(contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            item { FreshnessLabel(dashboard) }
+                            item { MapSection(gps = dashboard.telemetry?.gps, gpsUpdatedAt = dashboard.gpsUpdatedAt) }
+                        }
+                        Destination.SETTINGS -> SettingsScreen(session, dashboard, monitoring, chargeLimit.enabled,
+                            updateState, onCheckUpdate, onOpenUpdate, onMonitoringChange, onModelChange, onTariffChange, onLogout)
                     }
-                    Destination.MAP -> LazyColumn(contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        item { FreshnessLabel(dashboard) }
-                        item { MapSection(gps = dashboard.telemetry?.gps, gpsUpdatedAt = dashboard.gpsUpdatedAt) }
-                    }
-                    Destination.SETTINGS -> SettingsScreen(session, dashboard, monitoring, chargeLimit.enabled,
-                        onMonitoringChange, onModelChange, onTariffChange, onLogout)
                 }
             }
         }

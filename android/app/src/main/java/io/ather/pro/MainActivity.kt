@@ -1,26 +1,33 @@
 package io.ather.pro
 
 import android.Manifest
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
+import io.ather.pro.data.update.GithubAppUpdateRepository
+import io.ather.pro.presentation.AppUpdateViewModel
+import io.ather.pro.ui.update.AppUpdateDialog
+import io.ather.pro.ui.update.AppUpdateBanner
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import io.ather.pro.data.auth.AtherAuthApi
 import io.ather.pro.data.auth.AuthStep
-import io.ather.pro.data.auth.SecureSessionStore
-import io.ather.pro.data.repository.AtherRepository
 import io.ather.pro.presentation.AtherDashboardViewModel
 import io.ather.pro.presentation.AuthViewModel
 import io.ather.pro.ui.AtherAppShell
@@ -29,6 +36,11 @@ import io.ather.pro.ui.theme.AtherProTheme
 import io.ather.pro.util.ChargingNotificationManager
 
 class MainActivity : ComponentActivity() {
+    private val updates by lazy { GithubAppUpdateRepository.getInstance(this) }
+    private val updateViewModel: AppUpdateViewModel by viewModels { AppUpdateViewModel.Factory(updates) }
+    private var openUpdates by mutableStateOf(false)
+    private var canInstallUpdates by mutableStateOf(false)
+
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -50,6 +62,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        openUpdates = intent.getBooleanExtra(GithubAppUpdateRepository.OPEN_UPDATES, false)
         enableEdgeToEdge()
 
         ChargingNotificationManager.getInstance(applicationContext).createNotificationChannels()
@@ -71,6 +84,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             AtherProTheme {
+                val appUpdate by updateViewModel.state.collectAsStateWithLifecycle()
                 val authState by authViewModel.ui.collectAsStateWithLifecycle()
                 val dashboard by dashboardViewModel.dashboard.collectAsStateWithLifecycle()
                 val chargeLimit by dashboardViewModel.chargeLimit.collectAsStateWithLifecycle()
@@ -81,18 +95,26 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     if (authState.step != AuthStep.READY || authState.session?.isComplete != true) {
-                        AuthScreen(
-                            state = authState,
-                            onPhoneChanged = authViewModel::onPhoneChanged,
-                            onOtpChanged = authViewModel::onOtpChanged,
-                            onRequestOtp = authViewModel::requestOtp,
-                            onVerifyOtp = authViewModel::verifyOtp,
-                            onSelectScooter = authViewModel::selectScooter,
-                            onRetryScooters = authViewModel::retryScooters,
-                            onBackToPhone = authViewModel::backToPhone
-                        )
+                        Column(Modifier.fillMaxSize()) {
+                            AppUpdateBanner(appUpdate) { openUpdates = true }
+                            Box(Modifier.weight(1f)) {
+                                AuthScreen(
+                                    state = authState,
+                                    onPhoneChanged = authViewModel::onPhoneChanged,
+                                    onOtpChanged = authViewModel::onOtpChanged,
+                                    onRequestOtp = authViewModel::requestOtp,
+                                    onVerifyOtp = authViewModel::verifyOtp,
+                                    onSelectScooter = authViewModel::selectScooter,
+                                    onRetryScooters = authViewModel::retryScooters,
+                                    onBackToPhone = authViewModel::backToPhone
+                                )
+                            }
+                        }
                     } else {
                         AtherAppShell(
+                            updateState = appUpdate,
+                            onCheckUpdate = { updateViewModel.check() },
+                            onOpenUpdate = { openUpdates = true },
                             session = requireNotNull(authState.session),
                             dashboard = dashboard,
                             chargeLimit = chargeLimit,
@@ -116,9 +138,42 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                 }
+                if (openUpdates && appUpdate.release != null) AppUpdateDialog(
+                    state = appUpdate,
+                    canInstall = canInstallUpdates,
+                    onDownload = updateViewModel::download,
+                    onInstall = {
+                        lifecycleScope.launch {
+                            updates.installationUri()?.let { uri ->
+                                try {
+                                    startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri, "application/vnd.android.package-archive")
+                                        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
+                                } catch (_: Exception) { updates.reportInstallError() }
+                            }
+                        }
+                    },
+                    onAllowInstall = {
+                        startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName")))
+                    },
+                    onReleaseDetails = { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(appUpdate.release!!.pageUrl))) },
+                    onDismiss = { openUpdates = false }
+                )
             }
         }
     }
+
+    override fun onResume() {
+        super.onResume()
+        canInstallUpdates = packageManager.canRequestPackageInstalls()
+        updateViewModel.check(force = false)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.getBooleanExtra(GithubAppUpdateRepository.OPEN_UPDATES, false)) openUpdates = true
+    }
+
     override fun onStart() {
         super.onStart()
         appContainer.monitoring.onVisible()

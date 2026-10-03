@@ -4,11 +4,17 @@
 
 <h1 align="center">Athr+</h1>
 
-<p align="center">
-  <b>An independent, private companion application and widget for smart electric scooters.</b>
-</p>
+<p align="center"><b>An independent companion app and home-screen widget for your electric scooter.</b></p>
 
----
+## Download and update
+
+**[Download the latest release](https://github.com/karmugilen/athr-plus/releases/latest)** · **[v1.1.15 release notes](https://github.com/karmugilen/athr-plus/releases/tag/v1.1.15)**
+
+Requires Android 8.0 or newer. Download the `Athr+-v1.1.15-release.apk` asset and install it over your existing Athr+ app. Android may ask you to allow installation from your browser or file manager. Keep the existing app installed to retain your login, settings, and history.
+
+Version **1.1.15 (build 17)** is a signed, non-debuggable release with R8 code optimization and resource shrinking. Its signing certificate matches the previous public v1.1.2 APK; the APK file checksum changes with each release.
+
+This version adds update notices inside the app. Users on v1.1.2 need to install this release manually once. Future published stable releases appear in the app, with release notes, a download button, and Android's installation confirmation. You can also use **Settings → App updates → Check now**. Checks run on opening the app at most once every six hours and approximately daily in the background; Android may delay background work. A source push alone does not trigger an app update.
 
 ## Why This Project Exists
 
@@ -20,216 +26,86 @@ I built **Athr+** because the official app became frustrating to use:
 
 So I created and open-sourced **Athr+** to give everyone full, unrestricted access to their own scooter—live battery status, smart charging limits, home screen widgets, and ride history—without any annoying device blocks.
 
----
+## Features
+
+- **Battery and scooter information:** battery percentage, charging state, location, odometer, and per-mode range when supplied by the vehicle API. Active monitoring requests data every five seconds; the scooter/cloud may return older readings, so requests do not guarantee fresh data every five seconds.
+- **Charge limiter:** choose a target percentage and see an estimated stop time. Monitoring can request a stop when the measured level reaches the target or the saved estimated deadline arrives. Estimates are approximate, and stopping depends on Android background execution, connectivity, and the scooter accepting the command.
+- **24-hour battery history:** local measured samples with source timestamps; repeated cached readings do not become invented new measurements.
+- **Material 3 appearance:** system light/dark mode and wallpaper-derived colors on Android 12 and newer, with a Material palette on older phones.
+- **Compact home-screen widget:** battery, current range, clear per-mode range rows, sync time, connection status, and a limiter bar when enabled. Widget colors follow system appearance changes.
+- **Model-independent battery artwork:** an animated battery while charging and the original scooter launcher icon.
+- **Rust calculations:** native history selection, range scaling, and charging estimates for ARM and x86 devices.
+- **Maps and ride analytics:** Leaflet street maps, vehicle heading, local trip history, and available battery/efficiency information.
+- **Verified app updates:** public GitHub release checks without a GitHub login; downloaded APKs are checked for package, version, signing certificate, size, and available checksum before installation.
 
 ## Screenshots
 
-| Live Dashboard | Smart Charge Limit | Live Heading Map |
+These screenshots show an earlier release. Version 1.1.15 updates the theme, battery artwork, and widget layout.
+
+| Dashboard | Charge limit | Street map |
 | :---: | :---: | :---: |
-| <img src="docs/assets/screenshot_dashboard.png" width="240" alt="Dashboard Screen" /> | <img src="docs/assets/screenshot_charging.png" width="240" alt="Charging Limit Screen" /> | <img src="docs/assets/screenshot_map.jpg" width="240" alt="Interactive Map Screen" /> |
+| <img src="docs/assets/screenshot_dashboard.png" width="240" alt="Earlier dashboard" /> | <img src="docs/assets/screenshot_charging.png" width="240" alt="Earlier charge limiter" /> | <img src="docs/assets/screenshot_map.jpg" width="240" alt="Street map" /> |
 
-<p align="center">
-  <b>Material You 4×4 Live Home-Screen Widget</b><br/>
-  <img src="docs/assets/screenshot_widget.png" width="420" alt="Material You 4x4 Widget" />
-</p>
+<details>
+<summary>Earlier home-screen widget</summary>
+<img src="docs/assets/screenshot_widget.png" width="420" alt="Earlier home-screen widget" />
+</details>
 
----
+## Build
 
-## Architecture Overview
+Requires JDK 17 or 21, Android SDK API 34, Build-Tools `34.0.0`, NDK `26.1.10909125`, and Rust with these targets:
+
+```sh
+rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android i686-linux-android
+```
+
+Configure `android/local.properties` with your SDK path (`sdk.dir=/path/to/Android/Sdk`), or set `ANDROID_HOME`. Local properties and generated build files are ignored by Git.
+
+```sh
+# Development build
+JAVA_HOME=/path/to/jdk-21 ./android/gradlew -p android assembleDebug --console=plain
+
+# Optimized public build: configure the original signing key first.
+# See docs/APP-UPDATES.md for the four signing environment variables.
+JAVA_HOME=/path/to/jdk-21 ./android/gradlew -p android assembleRelease --console=plain
+JAVA_HOME=/path/to/jdk-21 python3 scripts/prepare-release.py android/app/build/outputs/apk/release/app-release.apk
+```
+
+The release APK is generated at `android/app/build/outputs/apk/release/app-release.apk`. The packaging script verifies its signing certificate and release identity, scans for locally known private account values, and creates the APK, SHA-256 checksum, and `update.json` under `android/app/build/release-upload/`.
+
+See [publishing and verifying updates](docs/APP-UPDATES.md) for local release steps and optional GitHub Actions signing. Release signing requires the original app key to preserve upgrade compatibility. Keep that key outside Git.
+
+## Development
+
+The app uses Kotlin 2.0, Jetpack Compose, Material 3, OkHttp, Gson, Room, WorkManager, and Rust through JNI. Leaflet runs inside an Android WebView.
 
 ```text
-+-----------------------------------------------------------------------------------+
-|                                   USER INTERFACE                                  |
-|  +---------------------+  +----------------------+  +--------------------------+  |
-|  |   Jetpack Compose   |  |   Material You 4x4   |  |   Leaflet Street Map     |  |
-|  |   Dashboard & Tabs  |  |   Live Mode Widget   |  |   (WebView + Heading)    |  |
-|  +----------+----------+  +----------+-----------+  +------------+-------------+  |
-+-------------|------------------------|---------------------------|----------------+
-              |                        |                           |
-              v                        v                           v
-+-----------------------------------------------------------------------------------+
-|                                PRESENTATION LAYER                                 |
-|             DashboardViewModel             |         AuthViewModel                |
-|       (StateFlow / UI Reducers)            |   (OTP Lifecycle & Selection)        |
-+----------------------------------------------+------------------------------------+
-                                               |
-                                               v
-+-----------------------------------------------------------------------------------+
-|                                   DOMAIN LAYER                                    |
-|  +---------------------+  +----------------------+  +--------------------------+  |
-|  | ChargeLimitControl  |  |   Range Estimator    |  |  Battery Health Estimator|  |
-|  | (Threshold/Cutoff)  |  | (Live Wh/km anchor)  |  |  (Observed efficiency)   |  |
-|  +----------+----------+  +----------+-----------+  +------------+-------------+  |
-|             |                        |                           |                |
-|  +----------v------------------------v---------------------------v-------------+  |
-|  |                     Scooter Repository (Orchestrator)                       |  |
-|  +-----------------------------------------------------------------------------+  |
-+----------------------------------------------+------------------------------------+
-                                               |
-                                               v
-+-----------------------------------------------------------------------------------+
-|                                    DATA LAYER                                     |
-|  +---------------------+  +----------------------+  +--------------------------+  |
-|  | VehicleApiClient    |  | SecureSessionStore   |  | Room SQLite Database     |  |
-|  | (WebSocket + REST)  |  | (AES-256 Encrypted)  |  | (Trips & Telemetry)      |  |
-|  +----------+----------+  +----------+-----------+  +------------+-------------+  |
-+-------------|------------------------|---------------------------|----------------+
-              |                        |                           |
-              v                        v                           v
-+-----------------------------------------------------------------------------------+
-|                              EXTERNAL / OS SERVICES                               |
-|  +-------------------------------------+  +------------------------------------+  |
-|  |  Foreground Monitoring Service       |  |  WorkManager Periodic Idle Sync    |  |
-|  |  (Partial WakeLock during charge)   |  |  (15-min background poll)          |  |
-|  +-------------------------------------+  +------------------------------------+  |
-|  +-------------------------------------+  +------------------------------------+  |
-|  |  Cloud Telemetry & Control API      |  |  Android Keystore & EncryptedPrefs |  |
-|  +-------------------------------------+  +------------------------------------+  |
-+-----------------------------------------------------------------------------------+
+android/app/src/main/java/io/ather/pro/
+  data/           API clients, local storage, Rust bridge, app updates
+  domain/         Charging rules, battery history, ranges, data models
+  presentation/   ViewModels and screen state
+  service/        Monitoring and background work
+  ui/             Compose screens, themes, and navigation
+  widget/         Home-screen widget snapshots and rendering
+rust/ather-math/   Native calculation library
+scripts/          Local API tools, release packaging, credential guards
+docs/             Feature and publishing documentation
 ```
 
----
-
-## Key Features
-
-- **Live Telemetry & Controls**: Real-time bidirectional WebSocket connection providing live SoC, power states, speed, odometer, and estimated mode ranges.
-- **Smart Charge Limits**: Automated charge cutoffs at user-selected battery percentages with rate-limited exponential backoff retry policies and partial wake-lock support.
-- **Dynamic Mode Range Calculations**: Live remaining range derived from actual real-time consumption anchors across all vehicle modes (Eco, SmartEco, Ride, Sport, Warp, Warp+).
-- **Interactive Street Map**: Integrated vector map supporting true-north and heading-up orientations, device compass synchronization, and vehicle tracking.
-- **Material You Dynamic Widgets**: Responsive 4×4 and compact home-screen widgets reflecting real-time battery status, per-mode range, and offline indicators.
-- **Encrypted Local Storage**: Zero-cloud-credential persistence using Android Keystore and AES-256 GCM `EncryptedSharedPreferences`.
-- **Offline Trip & Battery Analytics**: Local Room SQLite storage preserving historical ride logs, efficiency metrics (km/kWh), and battery degradation trends.
-
----
-
-## Tech Stack & Dependencies
-
-- **Language & Runtime**: Kotlin 1.9+, Java 17, Android SDK 34 (Android 14)
-- **UI Framework**: Jetpack Compose with Material 3 (Material You)
-- **Networking**: OkHttp 4.12 (WebSocket + HTTP/2 client), Gson
-- **Local Persistence**: Android Jetpack Room 2.6 with KSP compiler
-- **Security**: AndroidX Security-Crypto 1.1.0 (AES-256 GCM / AES-256 SIV)
-- **Background Automation**: AndroidX WorkManager 2.9 & Foreground Services
-- **Mapping**: Leaflet 1.9 + Leaflet Rotate inside hardware-accelerated WebView
-
----
-
-## How to Build & Compile
-
-### 1. Prerequisites
-
-Ensure you have the following installed on your development machine:
-- **JDK 17** (e.g. OpenJDK 17 or Eclipse Temurin 17)
-- **Android SDK** (API Level 34 with Android SDK Build-Tools `34.0.0`)
-- **Android Command-line Tools** or **Android Studio Hedgehog / Jellyfish / Ladybug**
-
-Set your environment variables in your shell configuration (`~/.bashrc` or `~/.zshrc`):
+Optional developer checks:
 
 ```sh
-export JAVA_HOME=/path/to/jdk-17
-export ANDROID_HOME=$HOME/Android/Sdk
-export PATH=$PATH:$ANDROID_HOME/platform-tools:$ANDROID_HOME/cmdline-tools/latest/bin
-```
-
-### 2. Configure Local Properties
-
-Create `android/local.properties` (if not already present):
-
-```properties
-sdk.dir=/home/your-user/Android/Sdk
-```
-
-### 3. Compile & Assemble Release APK
-
-Run the Gradle wrapper inside the project root:
-
-```sh
-# Set JAVA_HOME and compile the optimized release APK
-JAVA_HOME=/path/to/jdk-17 ./android/gradlew -p android assembleRelease
-```
-
-The compiled release APK will be generated at:
-```text
-android/app/build/outputs/apk/release/app-release.apk
-```
-
-### 4. Build Variants & Useful Gradle Tasks
-
-```sh
-# Assemble Debug APK
-./android/gradlew -p android assembleDebug
-
-# Run all unit tests
 ./android/gradlew -p android test
-
-# Run Android Lint checks
 ./android/gradlew -p android lintRelease
-
-# Clean build directory
-./android/gradlew -p android clean
 ```
 
----
+For desktop OTP login, telemetry, and charging API experiments with credentials stored outside Git, see [the desktop API lab](docs/LOCAL-API-LAB.md). Do not share session files or include them in a release.
 
-## Testing & Verification
+## Privacy and credentials
 
-For desktop OTP login, live telemetry, and start/stop API tests with credentials
-stored outside Git, see [Desktop API lab](docs/LOCAL-API-LAB.md).
+Scooter sign-in uses your OTP, and session data stays in local app storage. The app uses Android Keystore-backed encrypted preferences where available, with a private preferences fallback if encrypted storage cannot be initialized. GitHub update requests do not use scooter credentials.
 
-The project includes unit and end-to-end integration tests:
-
-1. **Unit Test Suite (121 tests)**:
-   ```sh
-   ./android/gradlew -p android test
-   ```
-   Validates telemetry parsing, charging cutoff algorithms, backoff retries, and range estimators.
-
-2. **Map Gesture & Browser Verification**:
-   ```sh
-   # Requires Node.js 20+ and Chromium
-   node scripts/test-map.mjs
-   ```
-   Exercises map rotations, heading synchronization, pinch gestures, and theme persistence.
-
-3. **Database Migration Verifier**:
-   ```sh
-   python3 scripts/test-migration.py
-   ```
-   Ensures seamless SQLite schema upgrades without losing user history.
-
----
-
-## Project Structure
-
-```text
-android/
-  app/
-    src/
-      main/
-        java/io/athr/pro/
-          data/          # Network APIs, WebSockets, Room Database & Secure Store
-          domain/        # Business logic, charging rules & range calculators
-          presentation/  # Jetpack Compose ViewModels & state holders
-          service/       # Foreground charge monitor & WorkManager tasks
-          ui/            # Compose screens, themes, and navigation
-          widget/        # Home-screen widget provider & renderers
-        assets/          # Bundled Leaflet mapping engine & CSS styles
-        res/             # Adaptive icons, layouts, and Material You drawables
-      test/              # Comprehensive test suites & JSON telemetry fixtures
-scripts/                 # Headless browser, schema migration & update scripts
-docs/                    # Technical architecture & release notes
-```
-
----
-
-## Security & Privacy Design
-
-- **Zero Hardcoded Credentials**: No embedded API keys, secret tokens, or passwords exist anywhere in the codebase.
-- **Direct End-to-End Auth**: Sign-in is initiated directly by the user via mobile OTP verification.
-- **Hardware-Backed Encryption**: Session tokens and vehicle identifiers are saved locally in encrypted storage backed by the device Keystore.
-- **Local-First Privacy**: Ride analytics and charging logs remain on your device and are never sent to third-party tracking services.
-
----
+Keystores, local properties, APKs, and local API session files are excluded from Git. The local commit/push guard checks private file paths, credential patterns, and known local account values. These safeguards complement reviewing changes before publishing; they are not a substitute for that review.
 
 ## Legal Notice & Disclaimer
 

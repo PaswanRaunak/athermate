@@ -13,15 +13,30 @@ android {
         applicationId = "io.ather.pro"
         minSdk = 26
         targetSdk = 34
-        versionCode = 11
-        versionName = "1.1.9-local"
+        versionCode = providers.gradleProperty("athrVersionCode").orNull?.toInt() ?: 17
+        versionName = providers.gradleProperty("athrVersionName").orNull ?: "1.1.15"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    // A release must use the same private signing key as the existing public APK.
+    val releaseKey = providers.environmentVariable("ATHR_SIGNING_STORE").orNull
+    signingConfigs {
+        create("publisher") {
+            if (releaseKey != null) {
+                storeFile = file(releaseKey)
+                storePassword = providers.environmentVariable("ATHR_SIGNING_STORE_PASSWORD").orNull
+                keyAlias = providers.environmentVariable("ATHR_SIGNING_ALIAS").orNull
+                keyPassword = providers.environmentVariable("ATHR_SIGNING_KEY_PASSWORD").orNull
+            }
+        }
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("debug")
+            isDebuggable = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            signingConfig = signingConfigs.getByName("publisher")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -95,3 +110,15 @@ val buildRust by tasks.registering(Exec::class) {
 }
 android.sourceSets.getByName("main").jniLibs.srcDir(nativeOutput)
 tasks.named("preBuild").configure { dependsOn(buildRust) }
+
+// Fail before producing an unsigned or differently keyed release by accident.
+tasks.matching { it.name == "validateSigningRelease" }.configureEach {
+    doFirst {
+        require(!System.getenv("ATHR_SIGNING_STORE").isNullOrBlank() &&
+            !System.getenv("ATHR_SIGNING_ALIAS").isNullOrBlank() &&
+            !System.getenv("ATHR_SIGNING_STORE_PASSWORD").isNullOrBlank() &&
+            !System.getenv("ATHR_SIGNING_KEY_PASSWORD").isNullOrBlank()) {
+            "Configure the original release signing key first; see docs/APP-UPDATES.md."
+        }
+    }
+}

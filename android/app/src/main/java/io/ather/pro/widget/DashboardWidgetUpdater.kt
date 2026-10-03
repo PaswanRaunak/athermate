@@ -9,10 +9,16 @@ import io.ather.pro.domain.charging.ChargeLimitController
 object DashboardWidgetUpdater {
     private var previousSnapshot: DashboardWidgetSnapshot? = null
     private var previousStale: Boolean? = null
+    @Synchronized
     fun publish(context: Context, state: ScooterDashboardState, limit: ChargeLimitController.Snapshot = ChargeLimitController.Snapshot()) {
         val appContext = context.applicationContext
-        if (state.telemetry == null && state.lastUpdated == null) return
-        val snapshot = DashboardWidgetSnapshot.fromDashboard(state, limit)
+        val incoming = DashboardWidgetSnapshot.fromDashboard(state, limit)
+        // Limiter changes must reach the widget even while waiting for a new scooter reading.
+        val snapshot = if (state.telemetry == null && state.lastUpdated == null) {
+            val saved = previousSnapshot ?: DashboardWidgetSnapshot.load(appContext)
+            saved.copy(connectionLabel = incoming.connectionLabel, limitPercent = incoming.limitPercent,
+                chargeLabel = incoming.chargeLabel, estimatedStopAtMs = incoming.estimatedStopAtMs)
+        } else incoming
         val stale = System.currentTimeMillis() - snapshot.updatedAtMs > 60_000L
         if (snapshot == previousSnapshot && stale == previousStale) return
         previousSnapshot = snapshot
@@ -21,6 +27,7 @@ object DashboardWidgetUpdater {
         refreshAll(appContext)
     }
 
+    @Synchronized
     fun clear(context: Context) {
         previousSnapshot = null
         previousStale = null

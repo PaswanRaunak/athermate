@@ -17,6 +17,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
 import io.ather.pro.BuildConfig
+import io.ather.pro.domain.update.AppUpdateState
+import io.ather.pro.ui.update.AppUpdateCard
 import io.ather.pro.data.auth.AuthSession
 import io.ather.pro.domain.model.ScooterDashboardState
 import io.ather.pro.domain.model.ScooterModel
@@ -59,6 +61,9 @@ internal fun SettingsScreen(
     dashboard: ScooterDashboardState,
     monitoring: MonitoringState,
     limitEnabled: Boolean,
+    updateState: AppUpdateState,
+    onCheckUpdate: () -> Unit,
+    onOpenUpdate: () -> Unit,
     onMonitoringChange: (Boolean) -> Unit,
     onModelChange: (ScooterModel) -> Unit,
     onTariffChange: (Double) -> Unit,
@@ -69,6 +74,7 @@ internal fun SettingsScreen(
     var signOut by remember { mutableStateOf(false) }
     val parsedRate = rate.toDoubleOrNull()?.takeIf { it.isFinite() && it in 0.0..100.0 }
     LazyColumn(contentPadding = PaddingValues(18.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        item { AppUpdateCard(updateState, onCheckUpdate, onOpenUpdate) }
         item { MonitoringCard(monitoring, limitEnabled, onMonitoringChange) }
         item {
             Card(Modifier.fillMaxWidth()) {

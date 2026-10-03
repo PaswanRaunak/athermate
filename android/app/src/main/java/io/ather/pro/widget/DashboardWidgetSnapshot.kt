@@ -25,7 +25,8 @@ data class DashboardWidgetSnapshot(
     val charging: Boolean = false,
     val currentMode: String? = null,
     val vehicleName: String = "ATHR+",
-    val limitPercent: Int? = null
+    val limitPercent: Int? = null,
+    val estimatedStopAtMs: Long? = null
 ) {
     val socText: String
         get() = socPercent?.let { String.format(Locale.getDefault(), "%.0f%%", it) } ?: "—"
@@ -78,30 +79,37 @@ data class DashboardWidgetSnapshot(
                 charging = ChargingControl.isActivelyCharging(telemetry),
                 currentMode = RideMode.from(telemetry?.mode)?.takeIf { it.supportedBy(model) }?.displayName,
                 vehicleName = state.vehicleProfile?.displayName ?: model.displayName,
-                limitPercent = limit.percent.takeIf { limit.enabled }
+                limitPercent = limit.percent.takeIf { limit.enabled },
+                estimatedStopAtMs = limit.estimate?.stopAtMs?.takeIf {
+                    limit.enabled && limit.status == ChargeLimitController.Status.MONITORING
+                }
             )
         }
 
         fun load(context: Context): DashboardWidgetSnapshot {
             val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            val socBits = prefs.getLong(KEY_SOC, Long.MIN_VALUE)
-            val rangeBits = prefs.getLong(KEY_RANGE, Long.MIN_VALUE)
-            return DashboardWidgetSnapshot(
-                socPercent = socBits.takeIf { it != Long.MIN_VALUE }?.let { Double.fromBits(it) },
-                rangeKm = rangeBits.takeIf { it != Long.MIN_VALUE }?.let { Double.fromBits(it) },
-                syncLabel = prefs.getString(KEY_SYNC, "Never synced") ?: "Never synced",
-                connectionLabel = prefs.getString(KEY_CONN, "OFFLINE") ?: "OFFLINE",
-                updatedAtMs = prefs.getLong(KEY_UPDATED, 0L),
-                // The old formatted string could contain unsupported modes; wait for a filtered snapshot.
-                modeRanges = runCatching {
-                    Gson().fromJson(prefs.getString("mode_ranges_v2", "[]"), Array<RideModeRange>::class.java).toList()
-                }.getOrDefault(emptyList()),
-                chargeLabel = prefs.getString("charge_label", "Limit off").orEmpty(),
-                charging = prefs.getBoolean("charging", false),
-                currentMode = prefs.getString("current_mode", null),
-                vehicleName = prefs.getString("vehicle_name", "ATHR+") ?: "ATHR+",
-                limitPercent = prefs.getInt("limit_percent", -1).takeIf { it in 0..100 }
-            )
+            return runCatching {
+                val socBits = prefs.getLong(KEY_SOC, Long.MIN_VALUE)
+                val rangeBits = prefs.getLong(KEY_RANGE, Long.MIN_VALUE)
+                DashboardWidgetSnapshot(
+                    socPercent = socBits.takeIf { it != Long.MIN_VALUE }?.let { Double.fromBits(it) }?.takeIf { it.isFinite() && it in 0.0..100.0 },
+                    rangeKm = rangeBits.takeIf { it != Long.MIN_VALUE }?.let { Double.fromBits(it) }?.takeIf { it.isFinite() && it >= 0 },
+                    syncLabel = prefs.getString(KEY_SYNC, "Never synced") ?: "Never synced",
+                    connectionLabel = prefs.getString(KEY_CONN, "OFFLINE") ?: "OFFLINE",
+                    updatedAtMs = prefs.getLong(KEY_UPDATED, 0L),
+                    // The old formatted string could contain unsupported modes; wait for a filtered snapshot.
+                    modeRanges = runCatching {
+                        Gson().fromJson(prefs.getString("mode_ranges_v2", "[]"), Array<RideModeRange>::class.java)
+                            .orEmpty().filter { it != null && !it.name.isNullOrBlank() && it.km.isFinite() && it.km >= 0 }.take(6)
+                    }.getOrDefault(emptyList()),
+                    chargeLabel = prefs.getString("charge_label", "Limit off").orEmpty(),
+                    charging = prefs.getBoolean("charging", false),
+                    currentMode = prefs.getString("current_mode", null),
+                    vehicleName = prefs.getString("vehicle_name", "ATHR+") ?: "ATHR+",
+                    limitPercent = prefs.getInt("limit_percent", -1).takeIf { it in 0..100 },
+                    estimatedStopAtMs = prefs.getLong("estimated_stop_at", 0).takeIf { it > 0 }
+                )
+            }.getOrDefault(DashboardWidgetSnapshot())
         }
 
         fun save(context: Context, snapshot: DashboardWidgetSnapshot) {
@@ -126,6 +134,7 @@ data class DashboardWidgetSnapshot(
                     remove("history")
                     putString("charge_label", snapshot.chargeLabel)
                     putInt("limit_percent", snapshot.limitPercent ?: -1)
+                    putLong("estimated_stop_at", snapshot.estimatedStopAtMs ?: 0)
                     putBoolean("charging", snapshot.charging)
                     putString("current_mode", snapshot.currentMode)
                     putString("vehicle_name", snapshot.vehicleName)

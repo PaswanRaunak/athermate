@@ -656,7 +656,7 @@ fun MapSection(
                         .fillMaxWidth()
                         .height(mapHeight)
                         .clip(RoundedCornerShape(18.dp))
-                        .background(Color(0xFF0B0D0F)),
+                        .background(colorScheme.surface),
                     contentAlignment = Alignment.Center
                 ) {
                     // Layer 1: Live Leaflet Street Map (1:1 Touch Geometry - perfectly responsive dragging & panning)
@@ -830,7 +830,7 @@ fun MapSection(
                         modifier = Modifier
                             .size(10.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFF00E676))
+                            .background(colorScheme.primary)
                     )
                     Spacer(Modifier.width(6.dp))
                     Column {
@@ -856,7 +856,7 @@ fun MapSection(
                         imageVector = Icons.Default.Navigation,
                         contentDescription = null,
                         modifier = Modifier.size(12.dp),
-                        tint = Color(0xFF00B0FF)
+                        tint = colorScheme.tertiary
                     )
                     Spacer(Modifier.width(6.dp))
                     Column(horizontalAlignment = Alignment.End) {
