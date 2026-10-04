@@ -8,13 +8,13 @@
 
 ## Download and update
 
-**[Download the latest release](https://github.com/karmugilen/athr-plus/releases/latest)** · **[v1.1.15 release notes](https://github.com/karmugilen/athr-plus/releases/tag/v1.1.15)**
+**[Download the latest release](https://github.com/karmugilen/athr-plus/releases/latest)** · **[v1.1.16 release notes](https://github.com/karmugilen/athr-plus/releases/tag/v1.1.16)**
 
-Requires Android 8.0 or newer. Download the `Athr+-v1.1.15-release.apk` asset and install it over your existing Athr+ app. Android may ask you to allow installation from your browser or file manager. Keep the existing app installed to retain your login, settings, and history.
+Requires Android 8.0 or newer. Download the `Athr+-v1.1.16-release.apk` asset and install it over your existing Athr+ app. Android may ask you to allow installation from your browser or file manager. Keep the existing app installed to retain your login, settings, and history.
 
-Version **1.1.15 (build 18)** is a signed, non-debuggable release with R8 code optimization and resource shrinking. Its signing certificate matches the previous public v1.1.2 APK; the APK file checksum changes with each release.
+Version **1.1.16 (build 19)** is a signed, non-debuggable release with R8 code optimization and resource shrinking. Its signing certificate matches the previous public v1.1.2 APK; the APK file checksum changes with each release.
 
-This version adds update notices inside the app. Users on v1.1.2 need to install this release manually once. Future published stable releases appear in the app, with release notes, a download button, and Android's installation confirmation. You can also use **Settings → App updates → Check now**. Checks run on opening the app at most once every six hours and approximately daily in the background; Android may delay background work. A source push alone does not trigger an app update.
+This version improves phone and OTP sign-in with searchable international calling codes and adds smoother map headings with refresh-rate requests up to 144 Hz on supported devices. It includes update notices inside the app. Users on v1.1.2 need to install this release manually once. Future published stable releases appear in the app, with release notes, a download button, and Android's installation confirmation. You can also use **Settings → App updates → Check now**. Checks run on opening the app at most once every six hours and approximately daily in the background; Android may delay background work. A source push alone does not trigger an app update.
 
 ## Support the project
 
@@ -43,6 +43,8 @@ So I created and open-sourced **Athr+** to give everyone full, unrestricted acce
 - **Compact home-screen widget:** battery, current range, clear per-mode range rows, sync time, connection status, and a limiter bar when enabled. Widget colors follow system appearance changes.
 - **Model-independent battery artwork:** an animated battery while charging and the original scooter launcher icon.
 - **Rust calculations:** native history selection, range scaling, and charging estimates for ARM and x86 devices.
+- **Phone sign-in:** searchable country calling codes (India +91 by default), international number paste, country-aware validation, and SMS code resend with a countdown. OTP delivery for each country depends on the account provider.
+- **Smooth map interaction:** display-paced heading animation and a request for the fastest supported refresh rate up to 144 Hz while a map is open. Actual frame rate depends on the device, Android settings, and WebView.
 - **Maps and ride analytics:** Leaflet street maps, vehicle heading, local trip history, and available battery/efficiency information.
 - **Verified app updates:** public GitHub release checks without a GitHub login; downloaded APKs are checked for package, version, signing certificate, size, and available checksum before installation.
 

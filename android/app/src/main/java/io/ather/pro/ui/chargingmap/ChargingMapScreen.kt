@@ -57,6 +57,7 @@ import io.ather.pro.data.chargingmap.ChargingMapApi
 import io.ather.pro.domain.chargingmap.ChargerLocation
 import io.ather.pro.domain.chargingmap.ChargingMapLoadState
 import io.ather.pro.domain.chargingmap.WalletSnapshot
+import io.ather.pro.ui.maps.MapRefreshRate
 import io.ather.pro.ui.theme.AtherAccent
 import io.ather.pro.ui.theme.AtherBackground
 import io.ather.pro.ui.theme.AtherCard
@@ -558,6 +559,7 @@ private fun ChargerMapWebView(
     onChargerSelected: (String) -> Unit,
     onTilesFailed: (String) -> Unit = {},
 ) {
+    MapRefreshRate()
     val callbacks = remember {
         object {
             var ready: () -> Unit = {}
@@ -609,6 +611,12 @@ private fun ChargerMapWebView(
             }
         },
         update = { onWebView(it) },
+        onRelease = { view ->
+            view.stopLoading()
+            view.removeJavascriptInterface("ChargerMapBridge")
+            view.removeAllViews()
+            view.destroy()
+        },
     )
 }
 

@@ -7,6 +7,9 @@
   let headingMode = 'heading', followTarget = 'phone';
   let interacting = false, browsing = false, firstCenter = true;
   let resumeTimer = null;
+  let headingFrame = null, lastHeadingTime = null;
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const shortestAngle = (from, to) => ((to - from + 540) % 360) - 180;
   const pointers = new Set();
   const failedTiles = new Map();
   const retryTimers = new Set();
@@ -26,17 +29,39 @@
     document.getElementById('empty-status').hidden = !!(phone || scooter);
   }
 
+  function stopHeadingAnimation() {
+    if (headingFrame !== null) cancelAnimationFrame(headingFrame);
+    headingFrame = null;
+    lastHeadingTime = null;
+  }
+
+  function animateHeading(time) {
+    headingFrame = null;
+    if (!map || interacting || headingFrozen || document.hidden) {
+      lastHeadingTime = null;
+      return;
+    }
+    const target = headingMode === 'north' ? 0 : normalize(-heading);
+    const current = normalize(map.getBearing());
+    const delta = shortestAngle(current, target);
+    // Time-based easing gives the same response at 60, 90, 120 and 144 Hz.
+    const elapsed = lastHeadingTime === null ? 1000 / 60 : Math.min(time - lastHeadingTime, 50);
+    lastHeadingTime = time;
+    const finished = reducedMotion.matches || Math.abs(delta) < 0.1;
+    map.setBearing(finished ? target : normalize(current + delta * (1 - Math.exp(-elapsed / 55))));
+    if (!finished) headingFrame = requestAnimationFrame(animateHeading);
+    else lastHeadingTime = null;
+  }
+
   function updateHeading() {
-    // Browsing stops position-follow only. Heading-up must resume as soon as the
-    // gesture ends, using the same direct bearing updates as the working map.
-    if (!map || interacting || headingFrozen) return;
+    if (!map || interacting || headingFrozen || document.hidden) return;
     if (typeof map.stopHeadingUp === 'function') map.stopHeadingUp();
-    map.setBearing(headingMode === 'north' ? 0 : normalize(-heading));
-    updateOrientation();
+    if (headingFrame === null) headingFrame = requestAnimationFrame(animateHeading);
   }
 
   function pauseCamera() {
     interacting = true;
+    stopHeadingAnimation();
     clearTimeout(resumeTimer);
   }
 
@@ -98,6 +123,7 @@
 
   window.setHeadingFrozen = function (frozen) {
     headingFrozen = !!frozen;
+    if (headingFrozen) stopHeadingAnimation();
     if (!headingFrozen) updateHeading();
   };
 
@@ -228,7 +254,7 @@
     map = L.map('map', {
       zoomControl: false, attributionControl: false,
       zoomAnimation: false, fadeAnimation: false, markerZoomAnimation: false,
-      touchZoom: true, dragging: true, inertia: false,
+      touchZoom: true, dragging: true, inertia: true,
       doubleClickZoom: false, scrollWheelZoom: false, boxZoom: false, keyboard: false,
       zoomSnap: 1, zoomDelta: 1, minZoom: 3, maxZoom: 19, bounceAtZoomLimits: false,
       rotate: true, bearing: 0, dragRotate: false, touchRotate: false,
@@ -281,6 +307,11 @@
     map.on('dragend zoomend', settleCamera);
     map.on('rotate', updateOrientation);
     window.addEventListener('blur', function () { pointers.clear(); settleCamera(); });
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) stopHeadingAnimation();
+      else updateHeading();
+    });
+    window.addEventListener('pagehide', stopHeadingAnimation);
     window.addEventListener('online', window.retryMapTiles);
     new ResizeObserver(() => map.invalidateSize({ animate: false, pan: false })).observe(container);
     document.getElementById('tile-status').addEventListener('click', window.retryMapTiles);

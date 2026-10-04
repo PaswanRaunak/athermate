@@ -42,6 +42,7 @@ class SecureSessionStore(context: Context) {
             .putString(KEY_TOKEN, session.token)
             .putString(KEY_VEHICLE_UUID, session.vehicleUuid)
             .putString(KEY_PHONE, session.phone)
+            .putString(KEY_COUNTRY_CODE, session.countryCode)
             .putString(KEY_DISPLAY_NAME, session.displayName)
             .putLong(KEY_EXPIRES_AT, exp ?: -1L)
             .apply()
@@ -72,6 +73,7 @@ class SecureSessionStore(context: Context) {
             token = token,
             vehicleUuid = uuid,
             phone = prefs.getString(KEY_PHONE, null),
+            countryCode = prefs.getString(KEY_COUNTRY_CODE, "IN") ?: "IN",
             displayName = prefs.getString(KEY_DISPLAY_NAME, null),
             expiresAtEpochSec = expStored
         )
@@ -126,6 +128,7 @@ class SecureSessionStore(context: Context) {
         const val KEY_TOKEN = "token"
         const val KEY_VEHICLE_UUID = "vehicle_uuid"
         const val KEY_PHONE = "phone"
+        const val KEY_COUNTRY_CODE = "country_code"
         const val KEY_DISPLAY_NAME = "display_name"
         const val KEY_EXPIRES_AT = "expires_at"
 

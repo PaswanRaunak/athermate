@@ -9,6 +9,7 @@ import io.ather.pro.data.auth.AuthStep
 import io.ather.pro.data.auth.AuthUiState
 import io.ather.pro.data.auth.AtherAuthApi
 import io.ather.pro.data.auth.DiscoveredScooter
+import io.ather.pro.data.auth.PhoneNumbers
 import io.ather.pro.data.auth.JwtExpiry
 import io.ather.pro.data.auth.SecureSessionStore
 import io.ather.pro.data.repository.AtherRepository
@@ -43,7 +44,7 @@ class AuthViewModel(
                 } else if (session == null && _ui.value.step == AuthStep.READY) {
                     repository.clearCredentials()
                     _ui.update {
-                        AuthUiState(step = AuthStep.PHONE, phone = it.phone)
+                        AuthUiState(step = AuthStep.PHONE, phone = it.phone, countryCode = it.countryCode)
                     }
                 }
             }
@@ -51,25 +52,42 @@ class AuthViewModel(
     }
 
     fun onPhoneChanged(value: String) {
-        _ui.update { it.copy(phone = value.filter { ch -> ch.isDigit() }.take(15), errorMessage = null) }
+        if (_ui.value.isLoading) return
+        val input = value.filter { it in '0'..'9' || it == '+' || it == ' ' || it == '-' || it == '(' || it == ')' }.take(32)
+        _ui.update { state ->
+            val international = if (input.trim().startsWith("+")) PhoneNumbers.normalize(input, state.countryCode) else null
+            state.copy(phone = international?.national ?: input,
+                countryCode = international?.region ?: state.countryCode, errorMessage = null)
+        }
+    }
+
+    fun onCountryChanged(region: String) {
+        if (_ui.value.isLoading || _ui.value.step != AuthStep.PHONE) return
+        if (PhoneNumbers.countries.none { it.region == region }) return
+        _ui.update { it.copy(countryCode = region, errorMessage = null) }
     }
 
     fun onOtpChanged(value: String) {
-        _ui.update { it.copy(otp = value.filter { ch -> ch.isDigit() }.take(8), errorMessage = null) }
+        if (_ui.value.isLoading) return
+        _ui.update { it.copy(otp = value.filter { ch -> ch in '0'..'9' }.take(8), errorMessage = null) }
     }
 
     fun requestOtp() {
-        val phone = _ui.value.phone.trim()
-        if (phone.length < 10) {
-            _ui.update { it.copy(errorMessage = "Enter a valid mobile number") }
+        val current = _ui.value
+        if (current.isLoading || current.step !in listOf(AuthStep.PHONE, AuthStep.OTP)) return
+        if (current.step == AuthStep.OTP && System.currentTimeMillis() < current.resendAvailableAtMillis) return
+        val number = PhoneNumbers.normalize(current.phone, current.countryCode)
+        if (number == null) {
+            _ui.update { it.copy(errorMessage = "Enter a valid mobile number for the selected country") }
             return
         }
-        _ui.update { it.copy(isLoading = true, errorMessage = null) }
-        authApi.requestOtp(phone, _ui.value.countryCode) { result ->
+        _ui.update { it.copy(phone = number.national, countryCode = number.region, isLoading = true, errorMessage = null) }
+        authApi.requestOtp(number.national, number.region) { result ->
             _ui.update { state ->
                 result.fold(
                     onSuccess = {
-                        state.copy(step = AuthStep.OTP, isLoading = false, errorMessage = null)
+                        state.copy(step = AuthStep.OTP, otp = "", isLoading = false, errorMessage = null,
+                            resendAvailableAtMillis = System.currentTimeMillis() + 30_000L)
                     },
                     onFailure = { error ->
                         state.copy(
@@ -84,6 +102,7 @@ class AuthViewModel(
 
     fun verifyOtp() {
         val state = _ui.value
+        if (state.isLoading || state.step != AuthStep.OTP) return
         val phone = state.phone.trim()
         val otp = state.otp.trim()
         if (otp.length < 4) {
@@ -167,6 +186,7 @@ class AuthViewModel(
                             AuthUiState(
                                 step = AuthStep.PHONE,
                                 phone = phone,
+                                countryCode = _ui.value.countryCode,
                                 errorMessage = error.message
                             )
                         }
@@ -192,6 +212,7 @@ class AuthViewModel(
             token = token,
             vehicleUuid = scooter.uuid,
             phone = phone,
+            countryCode = _ui.value.countryCode,
             displayName = scooter.displayName,
             expiresAtEpochSec = JwtExpiry.expiresAtEpochSec(token)
         )
@@ -211,7 +232,7 @@ class AuthViewModel(
     private fun initialState(): AuthUiState {
         val session = sessionStore.current()
         return if (session?.isComplete == true) {
-            AuthUiState(step = AuthStep.READY, session = session, phone = session.phone.orEmpty())
+            AuthUiState(step = AuthStep.READY, session = session, phone = session.phone.orEmpty(), countryCode = session.countryCode)
         } else {
             AuthUiState()
         }

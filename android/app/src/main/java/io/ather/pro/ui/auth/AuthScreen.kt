@@ -3,6 +3,19 @@ package io.ather.pro.ui.auth
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.sp
+import io.ather.pro.data.auth.PhoneNumbers
+import kotlinx.coroutines.delay
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -11,7 +24,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -34,6 +46,7 @@ import io.ather.pro.data.auth.DiscoveredScooter
 fun AuthScreen(
     state: AuthUiState,
     onPhoneChanged: (String) -> Unit,
+    onCountryChanged: (String) -> Unit,
     onOtpChanged: (String) -> Unit,
     onRequestOtp: () -> Unit,
     onVerifyOtp: () -> Unit,
@@ -44,6 +57,7 @@ fun AuthScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .imePadding()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 24.dp, vertical = 32.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -65,32 +79,53 @@ fun AuthScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
-        when (state.step) {
-            AuthStep.PHONE -> PhoneStep(
-                phone = state.phone,
-                isLoading = state.isLoading,
-                onPhoneChanged = onPhoneChanged,
-                onRequestOtp = onRequestOtp
-            )
+        Text(
+            text = when (state.step) {
+                AuthStep.PHONE -> "Welcome back"
+                AuthStep.OTP -> "Check your messages"
+                else -> "Your scooters"
+            },
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold
+        )
+        Card(shape = RoundedCornerShape(24.dp), modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                when (state.step) {
+                    AuthStep.PHONE -> PhoneStep(
+                        phone = state.phone,
+                        countryCode = state.countryCode,
+                        hasError = state.errorMessage != null,
+                        onCountryChanged = onCountryChanged,
+                        isLoading = state.isLoading,
+                        onPhoneChanged = onPhoneChanged,
+                        onRequestOtp = onRequestOtp
+                    )
 
-            AuthStep.OTP -> OtpStep(
-                phone = state.phone,
-                otp = state.otp,
-                isLoading = state.isLoading,
-                onOtpChanged = onOtpChanged,
-                onVerifyOtp = onVerifyOtp,
-                onBack = onBackToPhone
-            )
+                    AuthStep.OTP -> OtpStep(
+                        phone = state.phone,
+                        otp = state.otp,
+                        countryCode = state.countryCode,
+                        hasError = state.errorMessage != null,
+                        resendAvailableAtMillis = state.resendAvailableAtMillis,
+                        onResend = onRequestOtp,
+                        isLoading = state.isLoading,
+                        onOtpChanged = onOtpChanged,
+                        onVerifyOtp = onVerifyOtp,
+                        onBack = onBackToPhone
+                    )
 
-            AuthStep.SCOOTER_SELECT -> ScooterStep(
-                scooters = state.scooters,
-                isLoading = state.isLoading,
-                onSelectScooter = onSelectScooter,
-                onRetry = onRetryScooters,
-                onBack = onBackToPhone
-            )
+                    AuthStep.SCOOTER_SELECT -> ScooterStep(
+                        scooters = state.scooters,
+                        isLoading = state.isLoading,
+                        onSelectScooter = onSelectScooter,
+                        onRetry = onRetryScooters,
+                        onBack = onBackToPhone
+                    )
 
-            AuthStep.READY -> Unit
+                    AuthStep.READY -> Unit
+                }
+
+            }
         }
 
         if (state.isLoading) {
@@ -113,64 +148,132 @@ fun AuthScreen(
 @Composable
 private fun PhoneStep(
     phone: String,
+    countryCode: String,
+    hasError: Boolean,
     isLoading: Boolean,
+    onCountryChanged: (String) -> Unit,
     onPhoneChanged: (String) -> Unit,
     onRequestOtp: () -> Unit
 ) {
+    var showCountries by remember { mutableStateOf(false) }
+    val country = PhoneNumbers.country(countryCode)
+    val keyboard = LocalSoftwareKeyboardController.current
+    val canSubmit = !isLoading && PhoneNumbers.canSubmit(phone, countryCode)
+    val submit = { if (canSubmit) { keyboard?.hide(); onRequestOtp() } }
+    OutlinedButton(onClick = { showCountries = true }, enabled = !isLoading,
+        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
+        Text("${country.label}  ▾")
+    }
     OutlinedTextField(
         value = phone,
         onValueChange = onPhoneChanged,
+        enabled = !isLoading,
         modifier = Modifier.fillMaxWidth(),
         label = { Text("Mobile number") },
-        placeholder = { Text("10-digit number") },
+        prefix = { Text("+${country.dialCode} ") },
+        supportingText = { Text("Use the number registered with your Ather account") },
+        isError = hasError,
         singleLine = true,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+        shape = RoundedCornerShape(16.dp),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Done),
+        keyboardActions = KeyboardActions(onDone = { submit() }),
         colors = authFieldColors()
     )
-    Button(
-        onClick = onRequestOtp,
-        enabled = !isLoading && phone.length >= 10,
-        modifier = Modifier.fillMaxWidth(),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.primary
-        )
-    ) {
-        Text("Send OTP")
+    Button(onClick = submit, enabled = canSubmit,
+        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
+        Text(if (isLoading) "Sending…" else "Send OTP")
     }
+    if (showCountries) CountryPicker(countryCode, onDismiss = { showCountries = false }) {
+        onCountryChanged(it)
+        showCountries = false
+    }
+}
+
+@Composable
+private fun CountryPicker(selected: String, onDismiss: () -> Unit, onSelected: (String) -> Unit) {
+    var query by remember { mutableStateOf("") }
+    val filtered = remember(query) {
+        PhoneNumbers.countries.filter {
+            it.name.contains(query.trim(), ignoreCase = true) ||
+                it.region.contains(query.trim(), ignoreCase = true) ||
+                ("+${it.dialCode}").contains(query.trim())
+        }
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Choose your country") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(query, { query = it }, label = { Text("Country or calling code") },
+                    singleLine = true, modifier = Modifier.fillMaxWidth())
+                LazyColumn(Modifier.heightIn(max = 320.dp)) {
+                    items(filtered, key = { it.region }) { country ->
+                        TextButton(onClick = { onSelected(country.region) }, modifier = Modifier.fillMaxWidth()) {
+                            Text(if (country.region == selected) "✓ ${country.label}" else country.label)
+                        }
+                    }
+                    if (filtered.isEmpty()) item { Text("No countries found") }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } }
+    )
 }
 
 @Composable
 private fun OtpStep(
     phone: String,
+    countryCode: String,
     otp: String,
+    hasError: Boolean,
+    resendAvailableAtMillis: Long,
     isLoading: Boolean,
     onOtpChanged: (String) -> Unit,
     onVerifyOtp: () -> Unit,
+    onResend: () -> Unit,
     onBack: () -> Unit
 ) {
-    Text(
-        text = "Sent to +91 $phone",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
-    )
+    val keyboard = LocalSoftwareKeyboardController.current
+    val canSubmit = !isLoading && otp.length in 4..8
+    val submit = { if (canSubmit) { keyboard?.hide(); onVerifyOtp() } }
+    var secondsLeft by remember(resendAvailableAtMillis) {
+        mutableStateOf(((resendAvailableAtMillis - System.currentTimeMillis() + 999) / 1000).coerceAtLeast(0))
+    }
+    LaunchedEffect(resendAvailableAtMillis) {
+        do {
+            secondsLeft = ((resendAvailableAtMillis - System.currentTimeMillis() + 999) / 1000).coerceAtLeast(0)
+            if (secondsLeft > 0) delay(1000)
+        } while (secondsLeft > 0)
+    }
+    Text("Sent to +${PhoneNumbers.country(countryCode).dialCode} $phone",
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant)
     OutlinedTextField(
         value = otp,
         onValueChange = onOtpChanged,
+        enabled = !isLoading,
         modifier = Modifier.fillMaxWidth(),
-        label = { Text("OTP") },
+        label = { Text("Verification code") },
+        placeholder = { Text("Enter SMS code") },
+        supportingText = { Text("Type or paste the code from your SMS") },
+        textStyle = MaterialTheme.typography.headlineSmall.copy(letterSpacing = 6.sp),
+        isError = hasError,
         singleLine = true,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+        shape = RoundedCornerShape(16.dp),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword, imeAction = ImeAction.Done),
+        keyboardActions = KeyboardActions(onDone = { submit() }),
         colors = authFieldColors()
     )
-    Button(
-        onClick = onVerifyOtp,
-        enabled = !isLoading && otp.length >= 4,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Text("Verify & continue")
+    Button(onClick = submit, enabled = canSubmit,
+        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
+        Text(if (isLoading) "Please wait…" else "Verify & continue")
     }
-    TextButton(onClick = onBack, enabled = !isLoading) {
-        Text("Use a different number")
+    TextButton(onClick = onResend, enabled = !isLoading && secondsLeft == 0L,
+        modifier = Modifier.fillMaxWidth()) {
+        Text(if (secondsLeft > 0) "Resend code in ${secondsLeft}s" else "Resend code")
+    }
+    TextButton(onClick = onBack, enabled = !isLoading, modifier = Modifier.fillMaxWidth()) {
+        Text("Change mobile number")
     }
 }
 

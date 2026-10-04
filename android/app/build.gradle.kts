@@ -13,8 +13,8 @@ android {
         applicationId = "io.ather.pro"
         minSdk = 26
         targetSdk = 34
-        versionCode = providers.gradleProperty("athrVersionCode").orNull?.toInt() ?: 18
-        versionName = providers.gradleProperty("athrVersionName").orNull ?: "1.1.15"
+        versionCode = providers.gradleProperty("athrVersionCode").orNull?.toInt() ?: 19
+        versionName = providers.gradleProperty("athrVersionName").orNull ?: "1.1.16"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -80,6 +80,7 @@ dependencies {
     // Ather WebSocket API
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.google.code.gson:gson:2.11.0")
+    implementation("com.googlecode.libphonenumber:libphonenumber:9.0.40")
 
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
     implementation("androidx.work:work-runtime-ktx:2.9.1")

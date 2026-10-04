@@ -119,6 +119,28 @@ try {
   }
   console.log('PASS: all themes preserve geographic position, zoom and bearing');
 
+  await evaluate('setMapHeading(359)');
+  await until('testMap.getBearing() === 1');
+  await evaluate(`window.headingBearings = [];
+    testMap.on('rotate', function () { headingBearings.push(testMap.getBearing()); });
+    setMapHeading(1);`);
+  await until('testMap.getBearing() === 359');
+  assert.ok(await evaluate('headingBearings.every(b => b < 2 || b > 358)'),
+    'Crossing north must use the short rotation path');
+  await evaluate('setMapHeading(20); setMapHeading(40); setMapHeading(60)');
+  await until('testMap.getBearing() === 300');
+  await evaluate('setHeadingFrozen(true); setMapHeading(180)');
+  await new Promise(resolve => setTimeout(resolve, 150));
+  assert.equal(await evaluate('testMap.getBearing()'), 300);
+  await evaluate('setHeadingFrozen(false)');
+  await until('testMap.getBearing() === 180');
+  await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+  await evaluate('setMapHeading(225)');
+  await until('testMap.getBearing() === 135');
+  await send('Emulation.setEmulatedMedia', { features: [] });
+  console.log('PASS: frame-paced headings use the short path, latest sensor value, freeze and reduced motion');
+
+
   await evaluate('window.anchor = testMap.containerPointToLatLng([150,180])');
   await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 150, y: 180, id: 0 }] });
   for (let i = 1; i <= 8; i++) {

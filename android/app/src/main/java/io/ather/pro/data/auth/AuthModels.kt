@@ -5,6 +5,7 @@ data class AuthSession(
     val vehicleUuid: String,
     val phone: String? = null,
     val displayName: String? = null,
+    val countryCode: String = "IN",
     val expiresAtEpochSec: Long? = null
 ) {
     fun isExpired(nowEpochSec: Long = System.currentTimeMillis() / 1000L): Boolean {
@@ -37,6 +38,7 @@ data class AuthUiState(
     val phone: String = "",
     val otp: String = "",
     val countryCode: String = "IN",
+    val resendAvailableAtMillis: Long = 0L,
     val pendingToken: String? = null,
     val scooters: List<DiscoveredScooter> = emptyList(),
     val isLoading: Boolean = false,

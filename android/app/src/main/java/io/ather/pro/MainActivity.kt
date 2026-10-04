@@ -101,6 +101,7 @@ class MainActivity : ComponentActivity() {
                                 AuthScreen(
                                     state = authState,
                                     onPhoneChanged = authViewModel::onPhoneChanged,
+                                    onCountryChanged = authViewModel::onCountryChanged,
                                     onOtpChanged = authViewModel::onOtpChanged,
                                     onRequestOtp = authViewModel::requestOtp,
                                     onVerifyOtp = authViewModel::verifyOtp,
