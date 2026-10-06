@@ -70,7 +70,7 @@ internal class GithubReleaseSource {
     }
 
     companion object {
-        const val REPO = "PaswanRaunak/athr-plus"
+        const val REPO = "PaswanRaunak/athermate"
         const val MAX_APK_BYTES = 150L * 1024 * 1024
     }
 }

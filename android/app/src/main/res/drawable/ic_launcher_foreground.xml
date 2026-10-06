@@ -100,10 +100,8 @@
         android:pathData="M63.5,30.5 h3 v2 h-3 z"
         android:fillColor="#00E59B" />
 
-    <!-- Athr+ Plus Accent Badge -->
+    <!-- AtherMate Heart Accent Badge -->
     <path
-        android:pathData="M36,48.3 L36,54.7 M32.8,51.5 L39.2,51.5"
-        android:strokeColor="#FF5A2A"
-        android:strokeWidth="2.2"
-        android:strokeLineCap="round" />
+        android:pathData="M36,54.6 C33.6,53 32.4,51.7 32.4,50.4 C32.4,49.3 33.2,48.5 34.2,48.5 C34.9,48.5 35.6,48.9 36,49.6 C36.4,48.9 37.1,48.5 37.8,48.5 C38.8,48.5 39.6,49.3 39.6,50.4 C39.6,51.7 38.4,53 36,54.6 Z"
+        android:fillColor="#FF5A2A" />
 </vector>
