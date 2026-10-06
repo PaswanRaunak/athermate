@@ -19,6 +19,7 @@ import io.ather.pro.domain.charging.RemoteChargingGateway
 import io.ather.pro.domain.model.ConnectionStatus
 import io.ather.pro.domain.model.RemoteChargingCommand
 import io.ather.pro.domain.model.RemoteCommandPhase
+import io.ather.pro.domain.model.ScooterArtwork
 import io.ather.pro.domain.model.ScooterDashboardState
 import io.ather.pro.domain.model.ScooterModel
 import io.ather.pro.domain.model.ScooterSettings
@@ -82,7 +83,8 @@ class AtherRepository(
         settings = ScooterSettings(
             selectedModel = runCatching { ScooterModel.valueOf(preferences?.getString("model", null).orEmpty()) }
                 .getOrDefault(ScooterModel.ATHER_450X_3_7),
-            tariffRatePerKWh = preferences?.getFloat("tariff", 8f)?.toDouble() ?: 8.0
+            tariffRatePerKWh = preferences?.getFloat("tariff", 8f)?.toDouble() ?: 8.0,
+            artworkColour = preferences?.getString("artwork_colour", null)?.takeIf(String::isNotBlank)
         ),
         connection = ConnectionStatus.DISCONNECTED
     ))
@@ -614,11 +616,25 @@ class AtherRepository(
     }
 
     override fun updateModel(model: ScooterModel) {
+        val canonicalColour = ScooterArtwork.matchingLabel(model, _dashboard.value.settings.artworkColour)
         _dashboard.update { state ->
-            val updatedSettings = state.settings.copy(selectedModel = model)
-            state.copy(settings = updatedSettings)
+            state.copy(settings = state.settings.copy(selectedModel = model, artworkColour = canonicalColour))
         }
-        preferences?.edit()?.putString("model", model.name)?.apply()
+        preferences?.edit()?.putString("model", model.name)?.also { editor ->
+            if (canonicalColour == null) editor.remove("artwork_colour")
+            else editor.putString("artwork_colour", canonicalColour)
+        }?.apply()
+    }
+
+    override fun updateArtworkColour(label: String?) {
+        val canonical = ScooterArtwork.matchingLabel(_dashboard.value.settings.selectedModel, label)
+        _dashboard.update { state ->
+            state.copy(settings = state.settings.copy(artworkColour = canonical))
+        }
+        preferences?.edit()?.also { editor ->
+            if (canonical == null) editor.remove("artwork_colour")
+            else editor.putString("artwork_colour", canonical)
+        }?.apply()
     }
 
     override fun updateTariff(tariffRate: Double) {

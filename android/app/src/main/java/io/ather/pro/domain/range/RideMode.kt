@@ -10,14 +10,18 @@ enum class RideMode(val apiName: String, val displayName: String) {
     SPORT("Sport", "Sport"),
     WARP("Warp", "Warp"),
     WARP_PLUS("WarpPlus", "Warp+"),
-    ZIP("Zip", "Zip");
+    ZIP("Zip", "Zip"),
+    POWER("Power", "Power");
 
     fun supportedBy(model: ScooterModel?): Boolean = when (model) {
-        ScooterModel.ATHER_APEX -> this != WARP && this != ZIP
-        ScooterModel.ATHER_450X_3_7, ScooterModel.ATHER_450X_2_9 -> this != WARP_PLUS && this != ZIP
+        ScooterModel.ATHER_APEX -> this != WARP && this != ZIP && this != POWER
+        ScooterModel.ATHER_450X_3_7, ScooterModel.ATHER_450X_2_9 -> this != WARP_PLUS && this != ZIP && this != POWER
         ScooterModel.ATHER_450S -> this in setOf(SMART_ECO, ECO, RIDE, SPORT)
         ScooterModel.ATHER_RIZTA_3_7, ScooterModel.ATHER_RIZTA_2_9 -> this in setOf(SMART_ECO, ECO, ZIP)
-        null -> this != WARP_PLUS // Never imply Apex support without a known model.
+        ScooterModel.ATHER_KONARC_2_1,
+        ScooterModel.ATHER_KONARC_2_7,
+        ScooterModel.ATHER_KONARC_3_5 -> this in setOf(SMART_ECO, ECO, POWER)
+        null -> this != WARP_PLUS && this != POWER // Never imply Apex support without a known model.
     }
 
     companion object {
@@ -31,6 +35,7 @@ enum class RideMode(val apiName: String, val displayName: String) {
             "warp" -> WARP
             "warpplus" -> WARP_PLUS
             "zip" -> ZIP
+            "power" -> POWER
             else -> null
         }
     }

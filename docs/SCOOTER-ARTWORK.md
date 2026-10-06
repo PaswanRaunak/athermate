@@ -1,8 +1,8 @@
 # Energy artwork
 
-The dashboard uses a model-independent battery visual drawn by `ui/visuals/BatteryArtwork.kt`. It replaces the illustrative 450X image. The scooter name still comes from the profile or selected model; the artwork works for any model without image mappings.
+When a drawing has been supplied for the signed-in model, the home hero shows that original side-view illustration and the account name in large type. `ScooterArtwork` picks the file from the detected model (`modelForRange`) and the saved colour, or the colour on the vehicle profile. An unknown colour uses that model's default drawing. A model with no supplied drawing keeps the battery hero below. The drawings are simplified originals in `res/drawable/scooter_*.xml`, with the same paths as SVG in `assets/scooter-art/`. They are not official product photos. `tools/generate_scooter_art.py` regenerates both from one set of paths.
 
-The battery fill and outer ring use the reported state of charge. A Material tertiary-color marker indicates the enabled limit, matching the limit label below the dashboard hero. Missing readings leave the battery empty without implying a measured 0%. The launcher icon uses the original scooter mark; the dashboard keeps the battery visual.
+The battery visual is drawn by `ui/visuals/BatteryArtwork.kt`. Its fill and outer ring use the reported state of charge. A Material tertiary-color marker indicates the enabled limit, matching the limit label below the dashboard hero. Missing readings leave the battery empty without implying a measured 0%. The launcher icon uses the original scooter mark.
 
 Charging adds a small energy flow and soft surface sheen; it never animates the reported percentage upwards. Motion runs only when the dashboard is visible, the activity is resumed, system animations are enabled, and the connected battery report is no more than two minutes old. Saved charging readings are labelled as saved and do not animate. Paused/stopped states remain still.
 

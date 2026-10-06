@@ -18,6 +18,7 @@ import io.ather.pro.ui.components.*
 fun AtherDashboardScreen(
     dashboard: ScooterDashboardState,
     chargeLimit: ChargeLimitController.Snapshot,
+    accountName: String,
     onOpenCharging: () -> Unit,
     onOpenMap: () -> Unit,
     onClearTrips: () -> Unit
@@ -30,7 +31,7 @@ fun AtherDashboardScreen(
                 Text(error, Modifier.padding(14.dp), style = MaterialTheme.typography.bodySmall)
             } }
         }
-        item { EnergySummaryCard(dashboard, chargeLimit) }
+        item { EnergySummaryCard(dashboard, chargeLimit, accountName) }
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 FilledTonalButton(onClick = onOpenCharging, modifier = Modifier.weight(1f)) {

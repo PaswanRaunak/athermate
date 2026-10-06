@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" width="320" height="180" role="img">
+  <title>konarc Quartz White</title>
+  <desc>Original Athr+ illustration. Not an official product image.</desc>
+  <path fill="#000000" fill-opacity="0.16" d="M40.0,168.0 A120.0,7.0 0 1 1 280.0,168.0 A120.0,7.0 0 1 1 40.0,168.0 Z"/>
+  <path fill="#2F6FED" d="M64,126 L214,118 L220,138 L70,144 Z"/>
+  <path fill="#F4F6F8" stroke="#334155" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" d="M48,128 L62,104 L124,96 L136,116 L168,120 L180,96 L196,72 L236,64 L268,78 L252,108 L230,120 L140,126 Z"/>
+  <path fill="#1C2430" d="M60,112 L128,100 L120,116 L64,124 Z"/>
+  <path fill="#12151A" d="M32,112 L58,100 L54,124 L30,130 Z"/>
+  <path fill="#F7F8FA" d="M214,74 L266,86 L264,96 L212,84 Z"/>
+  <path fill="#F4F6F8" d="M214,124 C234,108 268,112 292,132 L270,136 C256,122 234,120 218,132 Z"/>
+  <path fill="none" stroke="#5C6773" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M236,80 L250,150"/>
+  <path fill="none" stroke="#5C6773" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M210,70 L196,36"/>
+  <path fill="none" stroke="#5C6773" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M170,42 L230,32"/>
+  <path fill="#2F6FED" d="M163.6,42.0 A4.4,4.4 0 1 1 172.4,42.0 A4.4,4.4 0 1 1 163.6,42.0 Z"/>
+  <path fill="#2F6FED" d="M227.6,32.0 A4.4,4.4 0 1 1 236.4,32.0 A4.4,4.4 0 1 1 227.6,32.0 Z"/>
+  <path fill="#14181E" d="M46.0,150.0 A28.0,28.0 0 1 1 102.0,150.0 A28.0,28.0 0 1 1 46.0,150.0 Z"/>
+  <path fill="#2C343F" d="M56.6,150.0 A17.4,17.4 0 1 1 91.4,150.0 A17.4,17.4 0 1 1 56.6,150.0 Z"/>
+  <path fill="#E7EDF3" d="M67.8,150.0 A6.2,6.2 0 1 1 80.2,150.0 A6.2,6.2 0 1 1 67.8,150.0 Z"/>
+  <path fill="#14181E" d="M222.0,150.0 A28.0,28.0 0 1 1 278.0,150.0 A28.0,28.0 0 1 1 222.0,150.0 Z"/>
+  <path fill="#2C343F" d="M232.6,150.0 A17.4,17.4 0 1 1 267.4,150.0 A17.4,17.4 0 1 1 232.6,150.0 Z"/>
+  <path fill="#E7EDF3" d="M243.8,150.0 A6.2,6.2 0 1 1 256.2,150.0 A6.2,6.2 0 1 1 243.8,150.0 Z"/>
+</svg>

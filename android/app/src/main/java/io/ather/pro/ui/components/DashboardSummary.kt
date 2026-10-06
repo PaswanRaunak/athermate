@@ -1,5 +1,6 @@
 package io.ather.pro.ui.components
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -9,6 +10,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -22,6 +26,7 @@ import androidx.compose.material.icons.outlined.BatteryStd
 import io.ather.pro.domain.charging.ChargeLimitController
 import io.ather.pro.domain.charging.ChargingControl
 import io.ather.pro.domain.model.ConnectionStatus
+import io.ather.pro.domain.model.ScooterArtwork
 import io.ather.pro.domain.model.ScooterDashboardState
 import io.ather.pro.domain.range.RangeEstimator
 import kotlinx.coroutines.delay
@@ -51,7 +56,11 @@ fun FreshnessLabel(state: ScooterDashboardState, modifier: Modifier = Modifier) 
 }
 
 @Composable
-fun EnergySummaryCard(state: ScooterDashboardState, limit: ChargeLimitController.Snapshot) {
+fun EnergySummaryCard(state: ScooterDashboardState, limit: ChargeLimitController.Snapshot, accountName: String) {
+    val context = LocalContext.current
+    val drawing = ScooterArtwork.drawing(state.modelForRange, state.settings.artworkColour ?: state.vehicleProfile?.colour)
+    val drawingId = drawing?.let { context.resources.getIdentifier(it.drawable, "drawable", context.packageName) } ?: 0
+    val supplied = drawing?.takeIf { drawingId != 0 }
     val soc = state.telemetry?.batterySoc?.takeIf { it.isFinite() && it in 0.0..100.0 }
     val range = RangeEstimator.current(state.telemetry, state.modelForRange)
     val charging = ChargingControl.isActivelyCharging(state.telemetry)
@@ -80,11 +89,18 @@ fun EnergySummaryCard(state: ScooterDashboardState, limit: ChargeLimitController
         Column(Modifier.padding(if (narrow) 18.dp else 22.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("YOUR ENERGY", color = muted, style = MaterialTheme.typography.labelSmall,
-                        letterSpacing = 1.8.sp)
-                    Text(state.vehicleProfile?.displayName ?: state.settings.selectedModel.displayName,
-                        color = colors.onSurface, style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (supplied != null) {
+                        Text(accountName, color = colors.onSurface, style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text("${state.modelForRange.displayName} · ${supplied.colourLabel}",
+                            color = muted, style = MaterialTheme.typography.bodyMedium)
+                    } else {
+                        Text("YOUR ENERGY", color = muted, style = MaterialTheme.typography.labelSmall,
+                            letterSpacing = 1.8.sp)
+                        Text(state.vehicleProfile?.displayName ?: state.settings.selectedModel.displayName,
+                            color = colors.onSurface, style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
                 }
                 Surface(color = colors.surfaceContainerHigh, shape = RoundedCornerShape(12.dp),
                     border = androidx.compose.foundation.BorderStroke(1.dp, colors.outlineVariant)) {
@@ -114,8 +130,16 @@ fun EnergySummaryCard(state: ScooterDashboardState, limit: ChargeLimitController
                     Text(soc?.let { "${number(it, 2)}% reported" } ?: "Battery unavailable",
                         color = muted, style = MaterialTheme.typography.bodySmall)
                 }
-                EnergyBatteryVisual(soc, charging, fresh, limit.percent.takeIf { limit.enabled },
-                    Modifier.size(if (wide) 208.dp else if (narrow) 128.dp else 156.dp))
+                if (supplied != null) {
+                    Image(painter = painterResource(drawingId),
+                        contentDescription = "${state.modelForRange.displayName}, ${supplied.colourLabel}",
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier.size(if (wide) 220.dp else if (narrow) 132.dp else 176.dp,
+                            if (wide) 124.dp else if (narrow) 76.dp else 100.dp))
+                } else {
+                    EnergyBatteryVisual(soc, charging, fresh, limit.percent.takeIf { limit.enabled },
+                        Modifier.size(if (wide) 208.dp else if (narrow) 128.dp else 156.dp))
+                }
             }
             HorizontalDivider(color = colors.outlineVariant)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {

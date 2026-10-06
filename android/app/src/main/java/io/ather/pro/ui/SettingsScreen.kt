@@ -20,6 +20,7 @@ import io.ather.pro.BuildConfig
 import io.ather.pro.domain.update.AppUpdateState
 import io.ather.pro.ui.update.AppUpdateCard
 import io.ather.pro.data.auth.AuthSession
+import io.ather.pro.domain.model.ScooterArtwork
 import io.ather.pro.domain.model.ScooterDashboardState
 import io.ather.pro.domain.model.ScooterModel
 import io.ather.pro.domain.monitoring.MonitoringState
@@ -66,10 +67,12 @@ internal fun SettingsScreen(
     onOpenUpdate: () -> Unit,
     onMonitoringChange: (Boolean) -> Unit,
     onModelChange: (ScooterModel) -> Unit,
+    onArtworkColourChange: (String?) -> Unit,
     onTariffChange: (Double) -> Unit,
     onLogout: () -> Unit
 ) {
     var modelMenu by remember { mutableStateOf(false) }
+    var colourMenu by remember { mutableStateOf(false) }
     var rate by rememberSaveable(dashboard.settings.tariffRatePerKWh) { mutableStateOf(dashboard.settings.tariffRatePerKWh.toString()) }
     var signOut by remember { mutableStateOf(false) }
     val parsedRate = rate.toDoubleOrNull()?.takeIf { it.isFinite() && it in 0.0..100.0 }
@@ -89,6 +92,19 @@ internal fun SettingsScreen(
                             }
                         }
                     }
+                    Text("Scooter colour", style = MaterialTheme.typography.bodyMedium)
+                    Box {
+                        OutlinedButton(onClick = { colourMenu = true }) {
+                            Text(dashboard.settings.artworkColour ?: "From my scooter")
+                        }
+                        DropdownMenu(expanded = colourMenu, onDismissRequest = { colourMenu = false }) {
+                            DropdownMenuItem(text = { Text("From my scooter") }, onClick = { onArtworkColourChange(null); colourMenu = false })
+                            ScooterArtwork.colours(dashboard.settings.selectedModel).forEach { colour ->
+                                DropdownMenuItem(text = { Text(colour.label) }, onClick = { onArtworkColourChange(colour.label); colourMenu = false })
+                            }
+                        }
+                    }
+                    Text("From my scooter uses the colour reported for this scooter.", style = MaterialTheme.typography.bodySmall)
                     OutlinedTextField(value = rate, onValueChange = { rate = it }, modifier = Modifier.fillMaxWidth(),
                         label = { Text("Electricity rate · ₹ / kWh") }, singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),

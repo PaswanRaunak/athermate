@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" width="320" height="180" role="img">
+  <title>450s Stealth Blue</title>
+  <desc>Original Athr+ illustration. Not an official product image.</desc>
+  <path fill="#000000" fill-opacity="0.16" d="M40.0,168.0 A120.0,7.0 0 1 1 280.0,168.0 A120.0,7.0 0 1 1 40.0,168.0 Z"/>
+  <path fill="#3C4C5E" d="M48,140 C62,118 96,114 112,132 L104,138 C90,128 68,132 54,146 Z"/>
+  <path fill="#3C4C5E" stroke="#334155" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" d="M54,136 C64,114 100,98 142,98 C158,98 166,112 170,124 L196,128 C208,108 224,86 248,82 C272,78 286,96 276,120 L258,132 L168,138 L86,140 Z"/>
+  <path fill="#243140" d="M96,112 L140,108 L134,126 L94,128 Z"/>
+  <path fill="#14181E" d="M66,116 C92,98 128,96 156,106 L146,118 C120,112 92,114 72,126 Z"/>
+  <path fill="#3C4C5E" d="M214,126 C234,112 266,116 290,136 L270,140 C256,126 234,124 218,134 Z"/>
+  <path fill="#F7F8FA" d="M258.0,100.0 A10.0,10.0 0 1 1 278.0,100.0 A10.0,10.0 0 1 1 258.0,100.0 Z"/>
+  <path fill="none" stroke="#5C6773" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M240,96 L246,150"/>
+  <path fill="none" stroke="#5C6773" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M232,84 L214,36"/>
+  <path fill="none" stroke="#5C6773" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M188,42 L244,32"/>
+  <path fill="#1C2128" d="M181.6,42.0 A4.4,4.4 0 1 1 190.4,42.0 A4.4,4.4 0 1 1 181.6,42.0 Z"/>
+  <path fill="#1C2128" d="M241.6,32.0 A4.4,4.4 0 1 1 250.4,32.0 A4.4,4.4 0 1 1 241.6,32.0 Z"/>
+  <path fill="#14181E" d="M52.0,150.0 A26.0,26.0 0 1 1 104.0,150.0 A26.0,26.0 0 1 1 52.0,150.0 Z"/>
+  <path fill="#2C343F" d="M61.9,150.0 A16.1,16.1 0 1 1 94.1,150.0 A16.1,16.1 0 1 1 61.9,150.0 Z"/>
+  <path fill="#E7EDF3" d="M72.3,150.0 A5.7,5.7 0 1 1 83.7,150.0 A5.7,5.7 0 1 1 72.3,150.0 Z"/>
+  <path fill="#14181E" d="M220.0,150.0 A26.0,26.0 0 1 1 272.0,150.0 A26.0,26.0 0 1 1 220.0,150.0 Z"/>
+  <path fill="#2C343F" d="M229.9,150.0 A16.1,16.1 0 1 1 262.1,150.0 A16.1,16.1 0 1 1 229.9,150.0 Z"/>
+  <path fill="#E7EDF3" d="M240.3,150.0 A5.7,5.7 0 1 1 251.7,150.0 A5.7,5.7 0 1 1 240.3,150.0 Z"/>
+</svg>

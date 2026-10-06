@@ -131,6 +131,7 @@ class MainActivity : ComponentActivity() {
                             onMonitoringChange = appContainer.monitoring::setAlwaysEnabled,
                             onRefresh = dashboardViewModel::refresh,
                             onModelChange = dashboardViewModel::setScooterModel,
+                            onArtworkColourChange = dashboardViewModel::setArtworkColour,
                             onTariffChange = dashboardViewModel::setTariffRate,
                             onClearTrips = dashboardViewModel::clearTripHistory,
                             onPauseCharging = { dashboardViewModel.pauseCharging() },

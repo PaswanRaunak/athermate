@@ -18,7 +18,11 @@ enum class ScooterModel(
     ATHER_APEX("450 Apex (3.7 kWh)", 3700.0, 3240.0, 85.0),
     ATHER_RIZTA_3_7("Rizta (3.7 kWh)", 3700.0, 3240.0, 100.0),
     ATHER_RIZTA_2_9("Rizta (2.9 kWh)", 2900.0, 2610.0, 80.0),
-    ATHER_450S("450S (2.9 kWh)", 2900.0, 2610.0, 70.0)
+    ATHER_450S("450S (2.9 kWh)", 2900.0, 2610.0, 70.0),
+    // Companion-app anchors near 37 Wh/km, not official IDC figures.
+    ATHER_KONARC_2_1("Konarc (2.1 kWh)", 2100.0, 1890.0, 50.0),
+    ATHER_KONARC_2_7("Konarc (2.7 kWh)", 2700.0, 2430.0, 65.0),
+    ATHER_KONARC_3_5("Konarc (3.5 kWh)", 3500.0, 3150.0, 84.0)
 }
 
 data class VehicleProfile(
@@ -45,6 +49,16 @@ data class VehicleProfile(
                 code == "xhr" || bike.contains("xhr") -> ScooterModel.ATHER_450X_3_7
                 code == "xlr" || bike.contains("xlr") -> ScooterModel.ATHER_450X_2_9
                 type == "450x" -> null
+                "konarc" in type || "konarc" in code || "konarc" in bike -> {
+                    val pack = listOf(type, code, bike, generation.orEmpty().lowercase()).joinToString(" ")
+                    when {
+                        pack.contains("2.1") || pack.contains("2_1") || pack.contains("2100") ->
+                            ScooterModel.ATHER_KONARC_2_1
+                        pack.contains("2.7") || pack.contains("2_7") || pack.contains("2700") ->
+                            ScooterModel.ATHER_KONARC_2_7
+                        else -> ScooterModel.ATHER_KONARC_3_5
+                    }
+                }
                 else -> null
             }
         }
@@ -56,6 +70,7 @@ data class VehicleProfile(
                 "450s" -> "450S"
                 "apex", "450 apex" -> "450 Apex"
                 "rizta" -> "Rizta"
+                "konarc" -> "Konarc"
                 else -> modelType?.takeIf(String::isNotBlank)?.let { it.uppercase() }
                     ?: "Scooter"
             }
@@ -256,7 +271,8 @@ data class ScooterTelemetry(
 data class ScooterSettings(
     val selectedModel: ScooterModel = ScooterModel.ATHER_450X_3_7,
     val tariffRatePerKWh: Double = 8.0,
-    val petrolPricePerLitre: Double = 103.0
+    val petrolPricePerLitre: Double = 103.0,
+    val artworkColour: String? = null
 )
 
 data class ChargeCostEstimate(

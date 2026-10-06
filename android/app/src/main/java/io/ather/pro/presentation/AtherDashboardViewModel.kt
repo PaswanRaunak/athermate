@@ -19,6 +19,10 @@ class AtherDashboardViewModel(
         repository.updateModel(model)
     }
 
+    fun setArtworkColour(label: String?) {
+        repository.updateArtworkColour(label)
+    }
+
     fun setTariffRate(rate: Double) {
         repository.updateTariff(rate)
     }

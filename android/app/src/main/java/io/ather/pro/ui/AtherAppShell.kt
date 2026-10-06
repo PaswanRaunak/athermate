@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import io.ather.pro.data.auth.AuthSession
 import io.ather.pro.domain.update.AppUpdateState
 import io.ather.pro.domain.charging.ChargeLimitController
+import io.ather.pro.domain.model.ScooterArtwork
 import io.ather.pro.domain.model.ScooterDashboardState
 import io.ather.pro.domain.model.ScooterModel
 import io.ather.pro.domain.monitoring.MonitoringState
@@ -43,6 +44,7 @@ fun AtherAppShell(
     onMonitoringChange: (Boolean) -> Unit,
     onRefresh: () -> Unit,
     onModelChange: (ScooterModel) -> Unit,
+    onArtworkColourChange: (String?) -> Unit,
     onTariffChange: (Double) -> Unit,
     onClearTrips: () -> Unit,
     onPauseCharging: () -> Unit,
@@ -83,7 +85,9 @@ fun AtherAppShell(
                 stateHolder.SaveableStateProvider(selected.name) {
                     when (selected) {
                         Destination.HOME -> AtherDashboardScreen(dashboard, chargeLimit,
-                            onOpenCharging = { selected = Destination.CHARGING }, onOpenMap = { selected = Destination.MAP }, onClearTrips)
+                            ScooterArtwork.accountTitle(session.displayName),
+                            onOpenCharging = { selected = Destination.CHARGING }, onOpenMap = { selected = Destination.MAP },
+                            onClearTrips = onClearTrips)
                         Destination.CHARGING -> LazyColumn(contentPadding = PaddingValues(18.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                             item { FreshnessLabel(dashboard) }
                             item { ChargeLimitCard(chargeLimit, dashboard, onChargeLimitEnabledChange, onChargeLimitPercentChange, onChargeLimitRetry) }
@@ -97,7 +101,8 @@ fun AtherAppShell(
                             item { MapSection(gps = dashboard.telemetry?.gps, gpsUpdatedAt = dashboard.gpsUpdatedAt) }
                         }
                         Destination.SETTINGS -> SettingsScreen(session, dashboard, monitoring, chargeLimit.enabled,
-                            updateState, onCheckUpdate, onOpenUpdate, onMonitoringChange, onModelChange, onTariffChange, onLogout)
+                            updateState, onCheckUpdate, onOpenUpdate, onMonitoringChange, onModelChange,
+                            onArtworkColourChange, onTariffChange, onLogout)
                     }
                 }
             }

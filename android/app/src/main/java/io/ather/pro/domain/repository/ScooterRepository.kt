@@ -16,6 +16,8 @@ interface ScooterRepository {
 
     fun updateModel(model: ScooterModel)
 
+    fun updateArtworkColour(label: String?)
+
     fun updateTariff(tariffRate: Double)
 
     fun clearTrips()
