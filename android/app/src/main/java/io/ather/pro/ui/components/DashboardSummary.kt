@@ -53,7 +53,7 @@ fun FreshnessLabel(state: ScooterDashboardState, modifier: Modifier = Modifier) 
 @Composable
 fun EnergySummaryCard(state: ScooterDashboardState, limit: ChargeLimitController.Snapshot) {
     val soc = state.telemetry?.batterySoc?.takeIf { it.isFinite() && it in 0.0..100.0 }
-    val range = RangeEstimator.current(state.telemetry, state.settings.selectedModel)
+    val range = RangeEstimator.current(state.telemetry, state.modelForRange)
     val charging = ChargingControl.isActivelyCharging(state.telemetry)
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) { while (true) { now = System.currentTimeMillis(); delay(15_000) } }
@@ -148,7 +148,7 @@ fun EnergySummaryCard(state: ScooterDashboardState, limit: ChargeLimitController
 
 @Composable
 fun ModeRangeCard(state: ScooterDashboardState) {
-    val ranges = RangeEstimator.modes(state.telemetry, state.settings.selectedModel)
+    val ranges = RangeEstimator.modes(state.telemetry, state.modelForRange)
     Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             val soc = state.telemetry?.batterySoc?.takeIf { it.isFinite() && it in 0.0..100.0 }
@@ -178,7 +178,7 @@ fun ModeRangeCard(state: ScooterDashboardState) {
 @Composable
 fun ChargeEstimateCard(state: ScooterDashboardState, target: Int) {
     val estimate = RangeEstimator.target(state.telemetry, target,
-        state.settings.selectedModel.usableCapacityWh, state.settings.tariffRatePerKWh, state.settings.selectedModel)
+        state.settings.selectedModel.usableCapacityWh, state.settings.tariffRatePerKWh, state.modelForRange)
     Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("Charge to $target%", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)

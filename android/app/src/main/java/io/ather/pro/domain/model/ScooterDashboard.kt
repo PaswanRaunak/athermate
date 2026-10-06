@@ -328,6 +328,10 @@ data class ScooterDashboardState(
     val vehicleProfile: VehicleProfile? = null,
     val remoteChargingCommand: RemoteChargingCommand = RemoteChargingCommand()
 ) {
+    /** Detected scooter wins for range and ride modes. The saved choice remains only when the profile cannot name a model. */
+    val modelForRange: ScooterModel
+        get() = vehicleProfile?.resolvedModel ?: settings.selectedModel
+
     val costToFullCharge: ChargeCostEstimate
         get() {
             val soc = telemetry?.batterySoc ?: 0.0

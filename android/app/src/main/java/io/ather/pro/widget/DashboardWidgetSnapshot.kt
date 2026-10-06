@@ -52,7 +52,7 @@ data class DashboardWidgetSnapshot(
 
         fun fromDashboard(state: ScooterDashboardState, limit: ChargeLimitController.Snapshot = ChargeLimitController.Snapshot()): DashboardWidgetSnapshot {
             val telemetry = state.telemetry
-            val model = state.settings.selectedModel
+            val model = state.modelForRange
             val range = RangeEstimator.current(telemetry, model)
             val batteryUpdatedAt = state.batteryReportedAt ?: telemetry?.sourceTimestampMs ?: state.batteryUpdatedAt ?: state.lastUpdated
             val sync = batteryUpdatedAt?.let {

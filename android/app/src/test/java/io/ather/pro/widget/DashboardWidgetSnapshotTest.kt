@@ -6,10 +6,20 @@ import io.ather.pro.domain.model.ScooterDashboardState
 import io.ather.pro.domain.model.ScooterModel
 import io.ather.pro.domain.model.ScooterSettings
 import io.ather.pro.domain.model.ScooterTelemetry
+import io.ather.pro.domain.model.VehicleProfile
 import org.junit.Assert.*
 import org.junit.Test
 
 class DashboardWidgetSnapshotTest {
+    private val modeTelemetry = ScooterTelemetry(mode = "Ride", modeRanges = mapOf(
+        "SmartEco" to ModeRange(rawRangeKm = 40.0),
+        "Eco" to ModeRange(rawRangeKm = 36.0),
+        "Ride" to ModeRange(rawRangeKm = 32.0),
+        "Sport" to ModeRange(rawRangeKm = 28.0),
+        "Warp" to ModeRange(rawRangeKm = 24.0),
+        "WarpPlus" to ModeRange(rawRangeKm = 20.0)
+    ))
+
     @Test fun widgetUsesCurrentChargeAndOnlySupportedModes() {
         val snapshot = DashboardWidgetSnapshot.fromDashboard(ScooterDashboardState(
             settings = ScooterSettings(selectedModel = ScooterModel.ATHER_450X_3_7),
@@ -51,5 +61,41 @@ class DashboardWidgetSnapshotTest {
         val snapshot = DashboardWidgetSnapshot.fromDashboard(ScooterDashboardState(telemetry = telemetry))
         assertEquals("Range at 79% battery", snapshot.modesLabel)
         assertEquals("SmartEco 101 km · Ride 82 km", snapshot.modesText)
+    }
+
+    @Test fun detected450SHidesWarpOnTheWidgetEvenWhenSavedModelIs450X() {
+        val snapshot = DashboardWidgetSnapshot.fromDashboard(ScooterDashboardState(
+            settings = ScooterSettings(selectedModel = ScooterModel.ATHER_450X_3_7),
+            vehicleProfile = VehicleProfile(modelType = "450S"),
+            telemetry = modeTelemetry))
+        assertEquals(listOf("SmartEco", "Eco", "Ride", "Sport"), snapshot.modeRanges.map { it.name })
+        assertFalse(snapshot.modesText.contains("Warp"))
+        assertEquals("Ride", snapshot.currentMode)
+    }
+
+    @Test fun unresolvedProfileDoesNotShowWarpPlusOnTheWidget() {
+        val snapshot = DashboardWidgetSnapshot.fromDashboard(ScooterDashboardState(
+            settings = ScooterSettings(selectedModel = ScooterModel.ATHER_450X_3_7),
+            vehicleProfile = VehicleProfile(modelType = "450X"),
+            telemetry = modeTelemetry))
+        assertEquals(listOf("SmartEco", "Eco", "Ride", "Sport", "Warp"), snapshot.modeRanges.map { it.name })
+    }
+
+    @Test fun manualModelRemainsOnTheWidgetWhenProfileCannotNameTheScooter() {
+        val snapshot = DashboardWidgetSnapshot.fromDashboard(ScooterDashboardState(
+            settings = ScooterSettings(selectedModel = ScooterModel.ATHER_450S),
+            vehicleProfile = VehicleProfile(modelType = "450X"),
+            telemetry = modeTelemetry))
+        assertEquals(listOf("SmartEco", "Eco", "Ride", "Sport"), snapshot.modeRanges.map { it.name })
+        assertFalse(snapshot.modesText.contains("Warp"))
+    }
+
+    @Test fun warpCurrentModeIsHiddenWhenTheDetectedModelDoesNotSupportIt() {
+        val snapshot = DashboardWidgetSnapshot.fromDashboard(ScooterDashboardState(
+            settings = ScooterSettings(selectedModel = ScooterModel.ATHER_450X_3_7),
+            vehicleProfile = VehicleProfile(modelType = "450S"),
+            telemetry = modeTelemetry.copy(mode = "Warp")))
+        assertNull(snapshot.currentMode)
+        assertEquals(listOf("SmartEco", "Eco", "Ride", "Sport"), snapshot.modeRanges.map { it.name })
     }
 }
