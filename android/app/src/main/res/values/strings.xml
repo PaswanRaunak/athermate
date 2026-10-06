@@ -1,8 +1,8 @@
 <resources>
-    <string name="app_name">Athr+</string>
-    <string name="widget_title">Athr+</string>
+    <string name="app_name">AtherMate</string>
+    <string name="widget_title">AtherMate</string>
     <string name="widget_description">Battery and remaining kilometres in each supported ride mode</string>
-    <string name="widget_content_description">Athr+ battery and range widget</string>
+    <string name="widget_content_description">AtherMate battery and range widget</string>
     <string name="widget_soc_placeholder">—</string>
     <string name="widget_range_placeholder">Range —</string>
     <string name="widget_sync_never">Never synced</string>

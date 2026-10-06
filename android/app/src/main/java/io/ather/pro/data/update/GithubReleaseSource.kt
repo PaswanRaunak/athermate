@@ -16,7 +16,7 @@ internal class GithubReleaseSource {
     fun latest(etag: String?): Fetch {
         val request = Request.Builder().url("https://api.github.com/repos/$REPO/releases/latest")
             .header("Accept", "application/vnd.github+json").header("X-GitHub-Api-Version", "2022-11-28")
-            .header("User-Agent", "AthrPlus-Android")
+            .header("User-Agent", "AtherMate-Android")
         etag?.let { request.header("If-None-Match", it) }
         client.newCall(request.build()).execute().use { response ->
             if (response.code == 304) return Fetch(null, etag, unchanged = true)
@@ -33,7 +33,7 @@ internal class GithubReleaseSource {
             val assets = json.getAsJsonArray("assets").map { it.asJsonObject }
                 .filter { it.get("state")?.asString == "uploaded" }
             val apks = assets.filter { it.get("name")?.asString?.endsWith(".apk", true) == true }
-            val apk = apks.firstOrNull { it.get("name").asString.equals("Athr+-$tag-release.apk", true) }
+            val apk = apks.firstOrNull { it.get("name").asString.equals("AtherMate-$tag-release.apk", true) }
                 ?: apks.firstOrNull { it.get("name").asString.contains("universal", true) }
                 ?: apks.singleOrNull() ?: error("Release APK is not ready. Try again later.")
             val apkUrl = apk.get("browser_download_url").asString
@@ -70,7 +70,7 @@ internal class GithubReleaseSource {
     }
 
     companion object {
-        const val REPO = "karmugilen/athr-plus"
+        const val REPO = "PaswanRaunak/athr-plus"
         const val MAX_APK_BYTES = 150L * 1024 * 1024
     }
 }

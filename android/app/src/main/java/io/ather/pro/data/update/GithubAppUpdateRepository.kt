@@ -149,7 +149,7 @@ class GithubAppUpdateRepository private constructor(private val context: Context
             .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         val pending = PendingIntent.getActivity(context, NOTIFICATION_ID, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         manager.notify(NOTIFICATION_ID, NotificationCompat.Builder(context, CHANNEL)
-            .setSmallIcon(R.drawable.widget_refresh).setContentTitle("Athr+ ${release.versionName} is available")
+            .setSmallIcon(R.drawable.widget_refresh).setContentTitle("AtherMate ${release.versionName} is available")
             .setContentText("See what’s new and update your app.").setContentIntent(pending).setAutoCancel(true).build())
         prefs.edit().putString("notified", release.tag).apply()
     }

@@ -23,7 +23,7 @@ fun AppUpdateBanner(state: AppUpdateState, onOpen: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                "Athr+ ${release.versionName} available",
+                "AtherMate ${release.versionName} available",
                 Modifier.weight(1f),
                 style = MaterialTheme.typography.labelLarge,
                 maxLines = 1,
@@ -39,7 +39,7 @@ fun AppUpdateCard(state: AppUpdateState, onCheck: () -> Unit, onOpen: () -> Unit
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("App updates", style = MaterialTheme.typography.titleMedium)
-            Text(state.release?.let { "Athr+ ${it.versionName} available" } ?: "Installed · ${BuildConfig.VERSION_NAME}",
+            Text(state.release?.let { "AtherMate ${it.versionName} available" } ?: "Installed · ${BuildConfig.VERSION_NAME}",
                 color = if (state.release != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
             Text("Checks on opening the app and daily in the background. New releases appear here and in notifications.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -71,19 +71,19 @@ fun AppUpdateDialog(
     val release = state.release ?: return
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Athr+ ${release.versionName}") },
+        title = { Text("AtherMate ${release.versionName}") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("${BuildConfig.VERSION_NAME} → ${release.versionName}", style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary)
-                Text(release.notes.ifBlank { "A new version of Athr+ is available." }, style = MaterialTheme.typography.bodyMedium)
+                Text(release.notes.ifBlank { "A new version of AtherMate is available." }, style = MaterialTheme.typography.bodyMedium)
                 Text("Your sign-in and app data stay on this phone.", style = MaterialTheme.typography.bodySmall)
                 when {
                     state.downloading -> {
                         LinearProgressIndicator(progress = { state.downloadProgress }, modifier = Modifier.fillMaxWidth())
                         Text("Downloading · ${(state.downloadProgress * 100).toInt()}%", style = MaterialTheme.typography.labelMedium)
                     }
-                    state.readyToInstall && !canInstall -> Text("Allow Athr+ to install app updates in Android settings, then return and tap Install.",
+                    state.readyToInstall && !canInstall -> Text("Allow AtherMate to install app updates in Android settings, then return and tap Install.",
                         style = MaterialTheme.typography.bodySmall)
                     state.readyToInstall -> Text("Download verified. Android will ask you to confirm installation.", style = MaterialTheme.typography.bodySmall)
                     else -> Text("Download · ${"%.1f".format(release.apkSize / 1_048_576.0)} MB", style = MaterialTheme.typography.labelMedium)

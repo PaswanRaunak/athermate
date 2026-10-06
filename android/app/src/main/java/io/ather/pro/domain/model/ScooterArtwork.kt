@@ -85,7 +85,7 @@ object ScooterArtwork {
         catalog[model]?.let { match(it, saved)?.label }
 
     fun accountTitle(displayName: String?): String =
-        displayName?.trim()?.takeIf(String::isNotEmpty) ?: "Your Athr+ account"
+        displayName?.trim()?.takeIf(String::isNotEmpty) ?: "Your AtherMate account"
 
     internal fun drawing(
         model: ScooterModel,

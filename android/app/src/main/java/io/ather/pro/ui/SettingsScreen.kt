@@ -118,16 +118,16 @@ internal fun SettingsScreen(
         item {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(session.displayName?.takeIf(String::isNotBlank) ?: "Your Athr+ account", style = MaterialTheme.typography.titleMedium)
-                    Text("Your sign-in is stored on this phone and kept when updating Athr+.", style = MaterialTheme.typography.bodySmall)
+                    Text(session.displayName?.takeIf(String::isNotBlank) ?: "Your AtherMate account", style = MaterialTheme.typography.titleMedium)
+                    Text("Your sign-in is stored on this phone and kept when updating AtherMate.", style = MaterialTheme.typography.bodySmall)
                     OutlinedButton(onClick = { signOut = true }) { Text("Sign out") }
                     Text("Independent companion app. Designed for smart EV scooters.", style = MaterialTheme.typography.bodySmall)
-                    Text("Athr+ ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.labelMedium)
+                    Text("AtherMate ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.labelMedium)
                 }
             }
         }
     }
-    if (signOut) AlertDialog(onDismissRequest = { signOut = false }, title = { Text("Sign out of Athr+?") },
+    if (signOut) AlertDialog(onDismissRequest = { signOut = false }, title = { Text("Sign out of AtherMate?") },
         text = { Text("Monitoring will stop. You’ll need an OTP to sign in again.") },
         confirmButton = { TextButton(onClick = { signOut = false; onLogout() }) { Text("Sign out") } },
         dismissButton = { TextButton(onClick = { signOut = false }) { Text("Cancel") } })

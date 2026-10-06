@@ -120,7 +120,7 @@ object WidgetRenderer {
                 addView(R.id.widget_modes_rows, row)
             }
             setContentDescription(R.id.widget_root,
-                "Athr+. Battery ${snapshot.socText}${if (snapshot.charging) ", charging" else ""}. " +
+                "AtherMate. Battery ${snapshot.socText}${if (snapshot.charging) ", charging" else ""}. " +
                     "${snapshot.modesLabel}: ${snapshot.modesText}. ${snapshot.chargeLabel}. $status. ${snapshot.syncLabel}")
         }
     }

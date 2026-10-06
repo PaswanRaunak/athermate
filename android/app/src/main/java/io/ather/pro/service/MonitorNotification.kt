@@ -22,7 +22,7 @@ object MonitorNotification {
         val stop = PendingIntent.getService(context, 1, Intent(context, ScooterMonitorService::class.java).setAction("io.ather.pro.STOP_MONITORING"), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         return NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(android.R.drawable.ic_lock_idle_charging)
-            .setContentTitle("Athr+ · Charging")
+            .setContentTitle("AtherMate · Charging")
             .setContentText(message)
             .setStyle(NotificationCompat.BigTextStyle().bigText(message))
             .setContentIntent(open).setOngoing(true).setOnlyAlertOnce(true).setSilent(true)
