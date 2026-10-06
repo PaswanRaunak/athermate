@@ -7,6 +7,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.ather.pro.BuildConfig
 import io.ather.pro.domain.update.AppUpdateState
@@ -17,8 +18,17 @@ import java.util.Date
 fun AppUpdateBanner(state: AppUpdateState, onOpen: () -> Unit) {
     val release = state.release ?: return
     Surface(color = MaterialTheme.colorScheme.primaryContainer) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Athr+ ${release.versionName} available", Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "Athr+ ${release.versionName} available",
+                Modifier.weight(1f),
+                style = MaterialTheme.typography.labelLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
             TextButton(onClick = onOpen) { Text(if (state.downloading) "Downloading…" else "Update") }
         }
     }

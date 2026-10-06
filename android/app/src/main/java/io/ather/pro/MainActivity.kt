@@ -95,7 +95,15 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     if (authState.step != AuthStep.READY || authState.session?.isComplete != true) {
-                        Column(Modifier.fillMaxSize()) {
+                        Column(
+                            Modifier
+                                .fillMaxSize()
+                                .windowInsetsPadding(
+                                    WindowInsets.statusBars
+                                        .union(WindowInsets.navigationBars)
+                                        .union(WindowInsets.displayCutout)
+                                )
+                        ) {
                             AppUpdateBanner(appUpdate) { openUpdates = true }
                             Box(Modifier.weight(1f)) {
                                 AuthScreen(
