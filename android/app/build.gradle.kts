@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -16,6 +18,16 @@ android {
         versionCode = providers.gradleProperty("athrVersionCode").orNull?.toInt() ?: 19
         versionName = providers.gradleProperty("athrVersionName").orNull ?: "1.1.16"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Personal values stay out of the repo: set in local.properties (gitignored).
+        val local = Properties().apply {
+            val file = rootProject.file("local.properties")
+            if (file.exists()) file.inputStream().use { load(it) }
+        }
+        buildConfigField("String", "SUPPORT_UPI_ID",
+            "\"${local.getProperty("athermate.upi") ?: ""}\"")
+        buildConfigField("String", "SUPPORT_UPI_NAME",
+            "\"${local.getProperty("athermate.upiName") ?: ""}\"")
     }
 
     // A release must use the same private signing key as the existing public APK.

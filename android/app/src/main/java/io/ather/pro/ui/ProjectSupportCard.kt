@@ -23,12 +23,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import io.ather.pro.BuildConfig
 
-private const val SUPPORT_UPI_ID = "karmugilrc-1@okaxis"
-
+/**
+ * Contribution card. The UPI identity is personal data, so it is injected at
+ * build time from local.properties (athermate.upi / athermate.upiName) and the
+ * card disappears when a build has none configured.
+ */
 @Composable
 internal fun ProjectSupportCard() {
     val context = LocalContext.current
+    val upiId = BuildConfig.SUPPORT_UPI_ID
+    val upiName = BuildConfig.SUPPORT_UPI_NAME
+    if (upiId.isBlank()) return
     var message by remember { mutableStateOf<String?>(null) }
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -36,16 +43,16 @@ internal fun ProjectSupportCard() {
             Text("If you find the app useful, consider supporting the project.",
                 style = MaterialTheme.typography.bodyMedium)
             SelectionContainer {
-                Text("UPI: $SUPPORT_UPI_ID", style = MaterialTheme.typography.bodyMedium)
+                Text("UPI: $upiId", style = MaterialTheme.typography.bodyMedium)
             }
             Text("Choose an amount and confirm in your payment app.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
             Button(onClick = {
                 val uri = Uri.Builder().scheme("upi").authority("pay")
-                    .appendQueryParameter("pa", SUPPORT_UPI_ID)
-                    .appendQueryParameter("pn", "Karmugil")
-                    .appendQueryParameter("tn", "Support Athr+")
+                    .appendQueryParameter("pa", upiId)
+                    .apply { if (upiName.isNotBlank()) appendQueryParameter("pn", upiName) }
+                    .appendQueryParameter("tn", "Support AtherMate")
                     .appendQueryParameter("cu", "INR")
                     .build()
                 val intent = Intent(Intent.ACTION_VIEW, uri)
@@ -64,7 +71,7 @@ internal fun ProjectSupportCard() {
             }, modifier = Modifier.fillMaxWidth()) { Text("Support via UPI") }
             TextButton(onClick = {
                 context.getSystemService(ClipboardManager::class.java)
-                    .setPrimaryClip(ClipData.newPlainText("Athr+ support UPI", SUPPORT_UPI_ID))
+                    .setPrimaryClip(ClipData.newPlainText("AtherMate support UPI", upiId))
                 message = "UPI ID copied"
             }) { Text("Copy UPI ID") }
             message?.let {
