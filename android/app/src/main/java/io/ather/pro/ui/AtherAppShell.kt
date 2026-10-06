@@ -22,13 +22,16 @@ import io.ather.pro.domain.model.ScooterArtwork
 import io.ather.pro.domain.model.ScooterDashboardState
 import io.ather.pro.domain.model.ScooterModel
 import io.ather.pro.domain.monitoring.MonitoringState
+import io.ather.pro.ble.BleDeviceUi
+import io.ather.pro.ble.BleUiState
+import io.ather.pro.ui.bluetooth.BluetoothScreen
 import io.ather.pro.ui.components.ChargeEstimateCard
 import io.ather.pro.ui.components.FreshnessLabel
 import io.ather.pro.ui.update.AppUpdateBanner
 
 private enum class Destination(val label: String, val icon: ImageVector) {
     HOME("Home", Icons.Default.Home), CHARGING("Charging", Icons.Default.BatteryChargingFull),
-    MAP("Map", Icons.Default.Map), SETTINGS("Settings", Icons.Default.Settings)
+    MAP("Map", Icons.Default.Map), BLUETOOTH("Bluetooth", Icons.Default.Bluetooth), SETTINGS("Settings", Icons.Default.Settings)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -41,6 +44,12 @@ fun AtherAppShell(
     dashboard: ScooterDashboardState,
     chargeLimit: ChargeLimitController.Snapshot,
     monitoring: MonitoringState,
+    ble: BleUiState,
+    onBleScan: () -> Unit,
+    onBleStopScan: () -> Unit,
+    onBleConnect: (BleDeviceUi) -> Unit,
+    onBleDisconnect: () -> Unit,
+    onBleClearLogs: () -> Unit,
     onMonitoringChange: (Boolean) -> Unit,
     onRefresh: () -> Unit,
     onModelChange: (ScooterModel) -> Unit,
@@ -61,7 +70,7 @@ fun AtherAppShell(
         topBar = {
             TopAppBar(title = {
                 Column {
-                    Text("ATHR+", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                    Text("ATHERMATE", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
                     Text(if (selected == Destination.HOME) dashboard.vehicleProfile?.displayName
                         ?: dashboard.settings.selectedModel.displayName else selected.label,
                         style = MaterialTheme.typography.titleMedium)
@@ -100,6 +109,7 @@ fun AtherAppShell(
                             item { FreshnessLabel(dashboard) }
                             item { MapSection(gps = dashboard.telemetry?.gps, gpsUpdatedAt = dashboard.gpsUpdatedAt) }
                         }
+                        Destination.BLUETOOTH -> BluetoothScreen(ble, onBleScan, onBleStopScan, onBleConnect, onBleDisconnect, onBleClearLogs)
                         Destination.SETTINGS -> SettingsScreen(session, dashboard, monitoring, chargeLimit.enabled,
                             updateState, onCheckUpdate, onOpenUpdate, onMonitoringChange, onModelChange,
                             onArtworkColourChange, onTariffChange, onLogout)

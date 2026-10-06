@@ -6,6 +6,7 @@ import android.content.res.Configuration
 import io.ather.pro.data.auth.AtherAuthApi
 import io.ather.pro.data.auth.SecureSessionStore
 import io.ather.pro.data.repository.AtherRepository
+import io.ather.pro.ble.ScooterBleManager
 import io.ather.pro.service.MonitoringController
 
 /** Application lifetime dependencies; activities never own the scooter connection. */
@@ -30,6 +31,7 @@ class AppContainer(context: Context) {
     val authApi = AtherAuthApi()
     val repository = AtherRepository.getInstance(context)
     val monitoring = MonitoringController(context, repository, sessionStore)
+    val ble = ScooterBleManager(context)
 }
 
 val Context.appContainer: AppContainer

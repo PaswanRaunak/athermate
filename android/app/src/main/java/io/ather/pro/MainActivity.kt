@@ -30,6 +30,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.ather.pro.data.auth.AuthStep
 import io.ather.pro.presentation.AtherDashboardViewModel
 import io.ather.pro.presentation.AuthViewModel
+import io.ather.pro.presentation.BleViewModel
 import io.ather.pro.ui.AtherAppShell
 import io.ather.pro.ui.auth.AuthScreen
 import io.ather.pro.ui.theme.AtherProTheme
@@ -58,6 +59,10 @@ class MainActivity : ComponentActivity() {
 
     private val dashboardViewModel: AtherDashboardViewModel by viewModels {
         AtherDashboardViewModel.Factory(repository)
+    }
+
+    private val bleViewModel: BleViewModel by viewModels {
+        BleViewModel.Factory(appContainer.ble)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -89,6 +94,7 @@ class MainActivity : ComponentActivity() {
                 val dashboard by dashboardViewModel.dashboard.collectAsStateWithLifecycle()
                 val chargeLimit by dashboardViewModel.chargeLimit.collectAsStateWithLifecycle()
                 val monitoring by appContainer.monitoring.state.collectAsStateWithLifecycle()
+                val ble by bleViewModel.ui.collectAsStateWithLifecycle()
 
                 Surface(
                     modifier = Modifier.fillMaxSize(),
@@ -128,6 +134,12 @@ class MainActivity : ComponentActivity() {
                             dashboard = dashboard,
                             chargeLimit = chargeLimit,
                             monitoring = monitoring,
+                            ble = ble,
+                            onBleScan = bleViewModel::startScan,
+                            onBleStopScan = bleViewModel::stopScan,
+                            onBleConnect = bleViewModel::connect,
+                            onBleDisconnect = bleViewModel::disconnect,
+                            onBleClearLogs = bleViewModel::clearLogs,
                             onMonitoringChange = appContainer.monitoring::setAlwaysEnabled,
                             onRefresh = dashboardViewModel::refresh,
                             onModelChange = dashboardViewModel::setScooterModel,
