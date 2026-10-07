@@ -49,7 +49,7 @@ object WidgetRenderer {
             ((rowsSpace / snapshot.modeRanges.size - rowPadding * 2) / (1.2f * scale))
                 .coerceIn(11f, if (roomy) 14f else 12f)
         val dark = context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
-        val colors = materialColorScheme(context, dark)
+        val colors = materialColorScheme(dark)
         val accent = colors.primary.toArgb()
         val primary = colors.onSurface.toArgb()
         val secondary = colors.onSurfaceVariant.toArgb()

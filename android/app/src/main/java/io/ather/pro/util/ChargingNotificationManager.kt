@@ -12,6 +12,7 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import io.ather.pro.MainActivity
+import io.ather.pro.R
 import io.ather.pro.domain.model.ScooterTelemetry
 import kotlin.math.roundToInt
 
@@ -128,7 +129,7 @@ class ChargingNotificationManager private constructor(private val context: Conte
         val text = detail?.takeIf { it.isNotBlank() }
             ?: "Phone-app stop at $percent%. Offline/force-stop/network loss prevents enforcement."
         return NotificationCompat.Builder(appContext, CHANNEL_CHARGE_LIMIT_ID)
-            .setSmallIcon(android.R.drawable.ic_lock_idle_charging)
+            .setSmallIcon(R.drawable.ic_stat_charging)
             .setContentTitle("Charge limit $percent% — $statusLabel")
             .setContentText(text)
             .setOngoing(true)
@@ -211,7 +212,8 @@ class ChargingNotificationManager private constructor(private val context: Conte
         val pendingIntent = createDashboardPendingIntent(NOTIFICATION_ID_PROGRESS)
 
         return NotificationCompat.Builder(appContext, CHANNEL_PROGRESS_ID)
-            .setSmallIcon(android.R.drawable.ic_lock_idle_charging)
+            .setSmallIcon(R.drawable.ic_stat_charging)
+            .setColor(0xFF4ADE80.toInt())
             .setContentTitle(title)
             .setContentText(contentText)
             .setProgress(100, socInt ?: 0, socInt == null)
@@ -238,7 +240,7 @@ class ChargingNotificationManager private constructor(private val context: Conte
 
         val pendingIntent = createDashboardPendingIntent(NOTIFICATION_ID_ALERT_80)
         val notification = NotificationCompat.Builder(appContext, CHANNEL_ALERTS_ID)
-            .setSmallIcon(android.R.drawable.ic_lock_idle_charging)
+            .setSmallIcon(R.drawable.ic_stat_charging)
             .setContentTitle("AtherMate — 80% Charged")
             .setContentText("Optimal battery health limit reached (80%).")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -255,7 +257,7 @@ class ChargingNotificationManager private constructor(private val context: Conte
 
         val pendingIntent = createDashboardPendingIntent(NOTIFICATION_ID_ALERT_100)
         val notification = NotificationCompat.Builder(appContext, CHANNEL_ALERTS_ID)
-            .setSmallIcon(android.R.drawable.ic_lock_idle_charging)
+            .setSmallIcon(R.drawable.ic_stat_charging)
             .setContentTitle("AtherMate — Fully Charged")
             .setContentText("Battery reached 100%. Vehicle is ready to ride.")
             .setPriority(NotificationCompat.PRIORITY_HIGH)

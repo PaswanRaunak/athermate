@@ -13,6 +13,7 @@ import android.os.PowerManager
 import android.os.SystemClock
 import androidx.core.app.ServiceCompat
 import io.ather.pro.appContainer
+import io.ather.pro.domain.charging.ChargingControl
 import io.ather.pro.domain.model.ConnectionStatus
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -27,7 +28,7 @@ import kotlin.math.roundToInt
 class ScooterMonitorService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var observing = false
-    private var previousText: String? = null
+    private var previousKey: String? = null
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
     private var cutoffWakeLock: PowerManager.WakeLock? = null
     private var wakeLockRenewedAt = 0L
@@ -69,15 +70,20 @@ class ScooterMonitorService : Service() {
                         stale -> "Waiting for scooter data"
                         else -> "Connected"
                     }
-                    val soc = state.telemetry?.batterySoc?.takeIf(Double::isFinite)?.roundToInt()?.let { " · $it%" }.orEmpty()
+                    val telemetry = state.telemetry
+                    val chargingNow = ChargingControl.isActivelyCharging(telemetry)
+                    val socInt = telemetry?.batterySoc?.takeIf(Double::isFinite)?.roundToInt()
+                    val soc = socInt?.let { " · $it%" }.orEmpty()
                     val target = if (limit.enabled) " · Limit ${limit.percent}% (${limit.status.name.lowercase()})" else ""
                     val stopTime = if (limit.enabled && limit.status == io.ather.pro.domain.charging.ChargeLimitController.Status.MONITORING)
                         limit.estimate?.let { " · Est. stop " + java.text.SimpleDateFormat("h:mm a", java.util.Locale.getDefault())
                             .format(java.util.Date(it.stopAtMs)) }.orEmpty() else ""
                     val text = connection + soc + target + stopTime
-                    if (text != previousText) {
-                        notifications.notify(NOTIFICATION_ID, notification(text))
-                        previousText = text
+                    // Charging state and SoC drive the progress bar, so re-post on their change too.
+                    val key = "$text#${chargingNow}#${socInt ?: -1}"
+                    if (key != previousKey) {
+                        notifications.notify(NOTIFICATION_ID, notification(text, socInt, chargingNow))
+                        previousKey = key
                     }
                     delay(5_000)
                 }
@@ -97,7 +103,8 @@ class ScooterMonitorService : Service() {
             .onSuccess { networkCallback = callback }
     }
 
-    private fun notification(message: String): Notification = MonitorNotification.build(this, message)
+    private fun notification(message: String, socPercent: Int? = null, charging: Boolean = false): Notification =
+        MonitorNotification.build(this, message, socPercent, charging)
 
     /** Keep fixed snapshot checks running with the screen off whenever the limiter is enabled. */
     private fun keepCutoffAwake(required: Boolean) {

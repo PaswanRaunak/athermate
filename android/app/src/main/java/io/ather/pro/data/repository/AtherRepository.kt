@@ -16,6 +16,8 @@ import io.ather.pro.domain.battery.RideHistory
 import io.ather.pro.domain.charging.ChargingControl
 import io.ather.pro.domain.charging.RemoteChargingDispatcher
 import io.ather.pro.domain.charging.RemoteChargingGateway
+import com.google.gson.Gson
+import io.ather.pro.domain.model.VehicleProfile
 import io.ather.pro.domain.model.ConnectionStatus
 import io.ather.pro.domain.model.RemoteChargingCommand
 import io.ather.pro.domain.model.RemoteCommandPhase
@@ -80,14 +82,35 @@ class AtherRepository(
     @Volatile private var snapshotConnectedAt: Long? = null
 
     private val _dashboard = MutableStateFlow(ScooterDashboardState(
+        vehicleProfile = restoreSavedVehicleProfile(),
         settings = ScooterSettings(
-            selectedModel = runCatching { ScooterModel.valueOf(preferences?.getString("model", null).orEmpty()) }
-                .getOrDefault(ScooterModel.ATHER_450X_3_7),
+            selectedModel = runCatching {
+                preferences?.getString("model", null)?.takeIf(String::isNotBlank)
+                    ?.let { ScooterModel.valueOf(it) }
+                    ?: preferences?.getString("model_last_synced", null)?.takeIf(String::isNotBlank)
+                        ?.let { ScooterModel.valueOf(it) }
+                    ?: ScooterModel.ATHER_450X_3_7
+            }.getOrDefault(ScooterModel.ATHER_450X_3_7),
             tariffRatePerKWh = preferences?.getFloat("tariff", 8f)?.toDouble() ?: 8.0,
             artworkColour = preferences?.getString("artwork_colour", null)?.takeIf(String::isNotBlank)
         ),
         connection = ConnectionStatus.DISCONNECTED
     ))
+
+    /** Last-known vehicle identity so offline restarts show the real scooter, not defaults. */
+    private fun restoreSavedVehicleProfile(): VehicleProfile? = runCatching {
+        val json = preferences?.getString("vehicle_profile", null).orEmpty()
+        if (json.isBlank()) null else Gson().fromJson(json, VehicleProfile::class.java)
+    }.getOrNull()
+
+    private fun saveVehicleProfile(profile: VehicleProfile) {
+        val editor = preferences?.edit() ?: return
+        editor.putString("vehicle_profile", Gson().toJson(profile))
+        if (profile.resolvedModel != null && preferences.contains("model") != true) {
+            editor.putString("model_last_synced", profile.resolvedModel!!.name)
+        }
+        editor.apply()
+    }
     private val storageReady = scope.async {
         runCatching {
         val restored = localStore?.loadTripBaseline()
@@ -169,6 +192,7 @@ class AtherRepository(
     @Synchronized
     fun clearCredentials() {
         generation += 1
+        preferences?.edit()?.remove("vehicle_profile")?.apply()
         evidence = ChargingEvidence()
         chargeRate.reset()
         authToken = null
@@ -240,6 +264,7 @@ class AtherRepository(
         api.fetchVehicleProfile(token, uuid) { result ->
             if (authToken != token || vehicleUuid != uuid) return@fetchVehicleProfile
             result.onSuccess { profile ->
+                saveVehicleProfile(profile)
                 _dashboard.update { state ->
                     val apiModel = profile.resolvedModel
                     state.copy(

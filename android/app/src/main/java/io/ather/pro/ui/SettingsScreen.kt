@@ -4,17 +4,23 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationManagerCompat
 import io.ather.pro.BuildConfig
 import io.ather.pro.domain.update.AppUpdateState
@@ -28,20 +34,29 @@ import io.ather.pro.domain.monitoring.MonitoringState
 @Composable
 internal fun MonitoringCard(state: MonitoringState, limitEnabled: Boolean, onChange: (Boolean) -> Unit) {
     val context = LocalContext.current
-    Card(Modifier.fillMaxWidth()) {
+    val colors = MaterialTheme.colorScheme
+    val status = when {
+        state.running -> "Charging monitor active" to colors.primary
+        state.alwaysEnabled || limitEnabled -> "Quiet checks while idle" to colors.tertiary
+        else -> "Off" to colors.onSurfaceVariant
+    }
+    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Charging in background", style = MaterialTheme.typography.titleMedium)
-                    Text(if (state.running) "Charging monitor active" else if (state.alwaysEnabled || limitEnabled) "Quiet checks while idle" else "Off",
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Charging in background", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Box(Modifier.size(7.dp).clip(CircleShape).background(status.second))
+                        Text(status.first, style = MaterialTheme.typography.labelMedium, color = status.second)
+                    }
                 }
                 Switch(checked = state.alwaysEnabled, onCheckedChange = onChange)
             }
             Text(if (state.alwaysEnabled) "Silent notification while charging. No ongoing notification when idle."
                 else if (limitEnabled) "Your charge limit enables charging checks in the background."
-                else "Enable automatic charge checks and widget updates after leaving the app.", style = MaterialTheme.typography.bodySmall)
-            state.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+                else "Enable automatic charge checks and widget updates after leaving the app.",
+                style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+            state.error?.let { Text(it, color = colors.error, style = MaterialTheme.typography.bodySmall) }
             if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) {
                 TextButton(onClick = {
                     context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
@@ -51,7 +66,7 @@ internal fun MonitoringCard(state: MonitoringState, limitEnabled: Boolean, onCha
                 context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}")))
             }) { Text("Android battery & background settings") }
             Text("Idle checks run about every 15 minutes and Android may delay them. Open the app when plugging in for immediate monitoring. Force-stop prevents checks until the app is opened again.",
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
         }
     }
 }
@@ -76,14 +91,17 @@ internal fun SettingsScreen(
     var rate by rememberSaveable(dashboard.settings.tariffRatePerKWh) { mutableStateOf(dashboard.settings.tariffRatePerKWh.toString()) }
     var signOut by remember { mutableStateOf(false) }
     val parsedRate = rate.toDoubleOrNull()?.takeIf { it.isFinite() && it in 0.0..100.0 }
+    val colors = MaterialTheme.colorScheme
     LazyColumn(contentPadding = PaddingValues(18.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item { AppUpdateCard(updateState, onCheckUpdate, onOpenUpdate) }
+        item { SectionLabel("Background") }
         item { MonitoringCard(monitoring, limitEnabled, onMonitoringChange) }
+        item { SectionLabel("Estimates") }
         item {
-            Card(Modifier.fillMaxWidth()) {
+            Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
                 Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Charge estimates", style = MaterialTheme.typography.titleMedium)
-                    Text("Select the battery size used for energy and cost estimates.", style = MaterialTheme.typography.bodySmall)
+                    Text("Charge estimates", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text("Battery size used for energy and cost estimates.", style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
                     Box {
                         OutlinedButton(onClick = { modelMenu = true }) { Text(dashboard.settings.selectedModel.displayName) }
                         DropdownMenu(expanded = modelMenu, onDismissRequest = { modelMenu = false }) {
@@ -92,7 +110,8 @@ internal fun SettingsScreen(
                             }
                         }
                     }
-                    Text("Scooter colour", style = MaterialTheme.typography.bodyMedium)
+                    Text("SCOOTER COLOUR", style = MaterialTheme.typography.labelSmall,
+                        color = colors.onSurfaceVariant, letterSpacing = 1.sp)
                     Box {
                         OutlinedButton(onClick = { colourMenu = true }) {
                             Text(dashboard.settings.artworkColour ?: "From my scooter")
@@ -104,25 +123,35 @@ internal fun SettingsScreen(
                             }
                         }
                     }
-                    Text("From my scooter uses the colour reported for this scooter.", style = MaterialTheme.typography.bodySmall)
+                    Text("From my scooter uses the colour reported for this scooter.", style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
                     OutlinedTextField(value = rate, onValueChange = { rate = it }, modifier = Modifier.fillMaxWidth(),
                         label = { Text("Electricity rate · ₹ / kWh") }, singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         isError = parsedRate == null,
                         supportingText = { if (parsedRate == null) Text("Enter a rate from 0 to 100") })
-                    Button(onClick = { parsedRate?.let(onTariffChange) }, enabled = parsedRate != null && parsedRate != dashboard.settings.tariffRatePerKWh) { Text("Save rate") }
+                    Button(onClick = { parsedRate?.let(onTariffChange) },
+                        enabled = parsedRate != null && parsedRate != dashboard.settings.tariffRatePerKWh) { Text("Save rate") }
                 }
             }
         }
+        item { SectionLabel("Support") }
         item { ProjectSupportCard() }
+        item { SectionLabel("Account") }
         item {
-            Card(Modifier.fillMaxWidth()) {
+            Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
                 Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(session.displayName?.takeIf(String::isNotBlank) ?: "Your AtherMate account", style = MaterialTheme.typography.titleMedium)
-                    Text("Your sign-in is stored on this phone and kept when updating AtherMate.", style = MaterialTheme.typography.bodySmall)
-                    OutlinedButton(onClick = { signOut = true }) { Text("Sign out") }
-                    Text("Independent companion app. Designed for smart EV scooters.", style = MaterialTheme.typography.bodySmall)
-                    Text("AtherMate ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.labelMedium)
+                    Text(session.displayName?.takeIf(String::isNotBlank) ?: "Your AtherMate account",
+                        style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text("Your sign-in is stored on this phone and kept when updating AtherMate.",
+                        style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                    OutlinedButton(onClick = { signOut = true },
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = colors.error)) {
+                        Text("Sign out")
+                    }
+                    Text("Independent companion app. Designed for smart EV scooters.",
+                        style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                    Text("AtherMate ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.labelMedium,
+                        color = colors.onSurfaceVariant)
                 }
             }
         }

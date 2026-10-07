@@ -161,20 +161,18 @@ class AuthViewModel(
         authApi.fetchScooters(token) { result ->
             result.fold(
                 onSuccess = { scooters ->
-                    if (scooters.size == 1) {
+                    // Scooter details already surface in the app after sign-in, so no
+                    // chooser: the first linked scooter completes the session directly.
+                    if (scooters.isNotEmpty()) {
                         completeSession(token, scooters.first(), phone)
                     } else {
                         _ui.update {
                             it.copy(
                                 step = AuthStep.SCOOTER_SELECT,
                                 pendingToken = token,
-                                scooters = scooters,
+                                scooters = emptyList(),
                                 isLoading = false,
-                                errorMessage = if (scooters.isEmpty()) {
-                                    "No scooters linked on this account yet."
-                                } else {
-                                    null
-                                }
+                                errorMessage = "No scooters linked on this account yet."
                             )
                         }
                     }

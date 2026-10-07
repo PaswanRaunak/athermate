@@ -3,6 +3,7 @@ package io.ather.pro.ui
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
@@ -12,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -70,9 +72,13 @@ fun AtherAppShell(
         topBar = {
             TopAppBar(title = {
                 Column {
-                    Text("ATHERMATE", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Icon(Icons.Default.Bolt, contentDescription = null,
+                            modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
+                        Text("ATHERMATE", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                    }
                     Text(if (selected == Destination.HOME) dashboard.vehicleProfile?.displayName
-                        ?: dashboard.settings.selectedModel.displayName else selected.label,
+                        ?: "My scooter" else selected.label,
                         style = MaterialTheme.typography.titleMedium)
                 }
             }, actions = {
@@ -80,15 +86,23 @@ fun AtherAppShell(
             })
         },
         bottomBar = {
-            NavigationBar {
+            NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
                 Destination.entries.forEach { destination ->
                     NavigationBarItem(selected = selected == destination, onClick = { selected = destination },
-                        icon = { Icon(destination.icon, contentDescription = null) }, label = { Text(destination.label) })
+                        icon = { Icon(destination.icon, contentDescription = null) }, label = { Text(destination.label) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant))
                 }
             }
         }
     ) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding)) {
+        val shellColors = MaterialTheme.colorScheme
+        Column(Modifier.fillMaxSize().padding(padding)
+            .background(Brush.verticalGradient(listOf(shellColors.background, shellColors.surfaceContainerLowest)))) {
             AppUpdateBanner(updateState, onOpenUpdate)
             Box(Modifier.weight(1f)) {
                 stateHolder.SaveableStateProvider(selected.name) {

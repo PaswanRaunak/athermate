@@ -1,6 +1,5 @@
 package io.ather.pro.ui
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,7 +17,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -35,12 +33,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import io.ather.pro.domain.charging.ChargingControl
 import io.ather.pro.domain.model.RemoteChargingCommand
 import io.ather.pro.domain.model.RemoteCommandPhase
@@ -80,6 +76,7 @@ fun ChargingActions(
     )
 }
 
+/** Remote charge control: status-led card with the one action that is currently possible. */
 @Composable
 private fun ChargingActions(
     view: ChargingControl.View,
@@ -88,196 +85,111 @@ private fun ChargingActions(
     onRetryLatch: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val colorScheme = MaterialTheme.colorScheme
-    val isCharging = view.activelyCharging
-    val chargerConnected = view.pluggedIn
-    val normalizedStatus = view.statusLabel
+    val colors = MaterialTheme.colorScheme
+    val charging = view.activelyCharging
+    val plugged = view.pluggedIn
     val command = view.command
 
+    // The status color is the whole story: green = current flowing, amber = cable in,
+    // grey = nothing to control.
+    val (statusColor, statusText) = when {
+        charging -> colors.primary to "Charging"
+        plugged -> colors.tertiary to "Paused on charger"
+        else -> colors.onSurfaceVariant to "Charger not connected"
+    }
+
     Card(
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
-        shape = RoundedCornerShape(20.dp)
+        modifier = modifier
+            .fillMaxWidth()
+            .semantics(mergeDescendants = true) {
+                contentDescription = "Charging status: $statusText"
+            },
+        colors = CardDefaults.cardColors(containerColor = colors.surface),
+        shape = RoundedCornerShape(24.dp)
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp)
+            Modifier.fillMaxWidth().padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .semantics(mergeDescendants = true) {
-                        contentDescription = "Charging Actions status: $normalizedStatus"
-                    },
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "CHARGING ACTIONS",
-                        color = colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.labelSmall
-                    )
-                    if (chargerConnected) {
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Surface(
-                            color = colorScheme.background,
-                            shape = RoundedCornerShape(10.dp)
-                        ) {
-                            Text(
-                                text = "PLUGGED IN",
-                                color = colorScheme.secondary,
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, color = colorScheme.secondary),
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(Modifier.size(9.dp).clip(CircleShape).background(statusColor))
+                    Text(statusText.uppercase(), style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold, color = statusColor)
+                }
+                if (plugged && !charging) {
+                    Surface(color = colors.tertiaryContainer, shape = RoundedCornerShape(50)) {
+                        Text("PLUGGED IN", color = colors.onTertiaryContainer,
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
                     }
                 }
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(7.dp)
-                            .clip(CircleShape)
-                            .background(if (isCharging) colorScheme.secondary else colorScheme.primary)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = normalizedStatus.uppercase(),
-                        color = if (isCharging) colorScheme.secondary else colorScheme.primary,
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            color = if (isCharging) colorScheme.secondary else colorScheme.primary
-                        )
-                    )
-                }
             }
-
-            Spacer(modifier = Modifier.height(14.dp))
 
             Text(
-                text = command.message ?: if (isCharging) {
-                    "Vehicle is actively drawing power. You can pause the charging session remotely."
+                text = command.message ?: if (charging) {
+                    "Vehicle is drawing power. Pause remotely to protect the battery or stop at your limit."
+                } else if (plugged) {
+                    "Cable connected but no current. Resume charging from here when you're ready."
                 } else {
-                    "Vehicle charging is currently idle or paused. Tap below to resume charging."
+                    "Plug the charger into the scooter to control charging remotely."
                 },
-                color = colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodySmall,
-                lineHeight = 16.sp
+                color = colors.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Every deliberate tap is actionable. The dispatcher replaces a stalled
-            // pending request, while requestedAt matching ignores its late callback.
-            val stopEnabled = !view.commandPending
-            val startEnabled = !view.commandPending
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Button(
-                    onClick = onPauseCharging,
-                    modifier = Modifier
-                        .weight(1f)
-                        .semantics(mergeDescendants = true) {
-                            contentDescription = "Stop or Pause Charging"
-                        },
-                    enabled = stopEnabled,
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = colorScheme.primary,
-                        contentColor = colorScheme.onPrimary,
-                        disabledContainerColor = colorScheme.background,
-                        disabledContentColor = colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                    ),
-                    border = if (!stopEnabled) BorderStroke(1.dp, colorScheme.outline) else null
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Pause,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "Stop / Pause",
-                        style = MaterialTheme.typography.labelMedium,
-                        maxLines = 1
-                    )
+            // One deliberate action per state — the disabled phase keeps it visible.
+            when {
+                view.commandPending -> {
+                    Button(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) {
+                        Text("Waiting for scooter…")
+                    }
                 }
-
-                Button(
-                    onClick = onResumeCharging,
-                    modifier = Modifier
-                        .weight(1f)
-                        .semantics(mergeDescendants = true) {
-                            contentDescription = "Start or Resume Charging"
-                        },
-                    enabled = startEnabled,
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = colorScheme.secondary,
-                        contentColor = colorScheme.onSecondary,
-                        disabledContainerColor = colorScheme.background,
-                        disabledContentColor = colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                    ),
-                    border = if (!startEnabled) BorderStroke(1.dp, colorScheme.outline) else null
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.PlayArrow,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "Start / Resume",
-                        style = MaterialTheme.typography.labelMedium,
-                        maxLines = 1
-                    )
+                charging && view.canPause -> {
+                    Button(onClick = onPauseCharging, modifier = Modifier.fillMaxWidth()) {
+                        Icon(Icons.Default.Pause, contentDescription = null, Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Pause charging")
+                    }
+                }
+                plugged && view.canResume -> {
+                    Button(onClick = onResumeCharging, modifier = Modifier.fillMaxWidth()) {
+                        Icon(Icons.Default.PlayArrow, contentDescription = null, Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Resume charging")
+                    }
+                }
+                else -> {
+                    Surface(color = colors.surfaceContainerHigh, shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()) {
+                        Text("Nothing to control right now",
+                            Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = colors.onSurfaceVariant)
+                    }
                 }
             }
 
-            when (view.command.phase) {
-                RemoteCommandPhase.SENDING -> {
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text(
-                        text = view.message ?: "Dispatching request to server…",
-                        color = colorScheme.tertiary,
-                        style = MaterialTheme.typography.labelSmall
-                    )
-                }
+            when (command.phase) {
+                RemoteCommandPhase.SENDING -> Text(
+                    view.command.message ?: "Dispatching request to server…",
+                    color = colors.tertiary, style = MaterialTheme.typography.labelSmall)
                 RemoteCommandPhase.ACCEPTED -> {
-                    Spacer(modifier = Modifier.height(10.dp))
                     Text(
-                        text = view.message
-                            ?: "Request accepted — waiting for scooter telemetry confirmation…",
-                        color = colorScheme.tertiary,
-                        style = MaterialTheme.typography.labelSmall
-                    )
-                    TextButton(onClick = onRetryLatch) {
-                        Text("Allow another attempt", color = colorScheme.secondary)
-                    }
+                        view.command.message ?: "Request accepted — waiting for scooter telemetry confirmation…",
+                        color = colors.tertiary, style = MaterialTheme.typography.labelSmall)
+                    TextButton(onClick = onRetryLatch) { Text("Allow another attempt") }
                 }
                 RemoteCommandPhase.ERROR -> {
-                    Spacer(modifier = Modifier.height(10.dp))
                     Text(
-                        text = view.message ?: "Request failed or timed out — you can retry.",
-                        color = colorScheme.error,
-                        style = MaterialTheme.typography.labelSmall
-                    )
-                    TextButton(onClick = onRetryLatch) {
-                        Text("Dismiss error", color = colorScheme.secondary)
-                    }
+                        view.command.message ?: "Request failed or timed out — you can retry.",
+                        color = colors.error, style = MaterialTheme.typography.labelSmall)
+                    TextButton(onClick = onRetryLatch) { Text("Dismiss error") }
                 }
-                RemoteCommandPhase.CONFIRMED -> {
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text(
-                        text = view.message ?: "Scooter confirmed the charging change.",
-                        color = colorScheme.secondary,
-                        style = MaterialTheme.typography.labelSmall
-                    )
-                }
+                RemoteCommandPhase.CONFIRMED -> Text(
+                    view.command.message ?: "Scooter confirmed the charging change.",
+                    color = colors.primary, style = MaterialTheme.typography.labelSmall)
                 RemoteCommandPhase.IDLE -> Unit
             }
         }

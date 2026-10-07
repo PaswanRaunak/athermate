@@ -5,9 +5,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.runtime.*
@@ -27,6 +31,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -62,32 +67,45 @@ fun AuthScreen(
             .padding(horizontal = 24.dp, vertical = 32.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Icon(
+                imageVector = Icons.Default.Bolt,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(18.dp)
+            )
+            Text(
+                text = "ATHERMATE",
+                style = MaterialTheme.typography.labelSmall,
+                letterSpacing = 1.5.sp,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
         Text(
-            text = "AtherMate",
+            text = when {
+                state.step == AuthStep.SCOOTER_SELECT && state.scooters.isEmpty() -> "Couldn't load your scooter"
+                state.step == AuthStep.PHONE -> "Welcome back"
+                state.step == AuthStep.OTP -> "Check your messages"
+                state.step == AuthStep.SCOOTER_SELECT -> "Choose your scooter"
+                else -> "You're signed in"
+            },
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onBackground
         )
         Text(
-            text = when (state.step) {
-                AuthStep.PHONE -> "Sign in with your registered mobile number"
-                AuthStep.OTP -> "Enter the OTP sent by SMS"
-                AuthStep.SCOOTER_SELECT -> "Select your scooter"
-                AuthStep.READY -> "Signed in"
+            text = when {
+                state.step == AuthStep.SCOOTER_SELECT && state.scooters.isEmpty() ->
+                    state.errorMessage ?: "Tap retry to try again."
+                state.step == AuthStep.PHONE -> "Sign in with your registered mobile number"
+                state.step == AuthStep.OTP -> "Enter the OTP sent by SMS"
+                state.step == AuthStep.SCOOTER_SELECT -> "Select the scooter linked to your account"
+                else -> "Signed in"
             },
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
-        Text(
-            text = when (state.step) {
-                AuthStep.PHONE -> "Welcome back"
-                AuthStep.OTP -> "Check your messages"
-                else -> "Your scooters"
-            },
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold
-        )
         Card(shape = RoundedCornerShape(24.dp), modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 when (state.step) {

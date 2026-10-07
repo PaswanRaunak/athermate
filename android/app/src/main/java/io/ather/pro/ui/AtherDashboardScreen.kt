@@ -9,6 +9,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import io.ather.pro.domain.charging.ChargeLimitController
 import io.ather.pro.domain.model.ScooterDashboardState
 import io.ather.pro.ui.components.*
@@ -34,21 +35,25 @@ fun AtherDashboardScreen(
         item { EnergySummaryCard(dashboard, chargeLimit, accountName) }
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                FilledTonalButton(onClick = onOpenCharging, modifier = Modifier.weight(1f)) {
+                Button(onClick = onOpenCharging, modifier = Modifier.weight(1f)) {
                     Text(if (chargeLimit.enabled) "Limit ${chargeLimit.percent}%" else "Manage charging")
                 }
                 OutlinedButton(onClick = onOpenMap, modifier = Modifier.weight(1f)) { Text("Find scooter") }
             }
         }
+        item { SectionLabel("Ride modes") }
         item { ModeRangeCard(dashboard) }
+        item { SectionLabel("Battery") }
         item { BatteryHistoryCard(dashboard = dashboard, chargeLimitPercent = chargeLimit.percent.takeIf { chargeLimit.enabled }) }
         item { TextButton(onClick = { details = !details }, modifier = Modifier.fillMaxWidth()) {
             Text(if (details) "Hide details" else "Battery health & vehicle details", fontWeight = FontWeight.SemiBold)
         } }
         if (details) {
+            item { SectionLabel("Health") }
             item { BatteryHealthCard(dashboard) }
+            item { SectionLabel("Trips") }
             item {
-                Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
+                Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
                     Row(Modifier.fillMaxWidth().padding(18.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                         Column { Text("Odometer", style = MaterialTheme.typography.labelMedium)
                             Text("${number(dashboard.telemetry?.odoKm, 1)} km", style = MaterialTheme.typography.titleLarge) }
@@ -65,4 +70,12 @@ fun AtherDashboardScreen(
             }
         }
     }
+}
+
+/** Small editorial overline above a dashboard section. */
+@Composable
+internal fun SectionLabel(text: String) {
+    Text(text.uppercase(), modifier = Modifier.padding(start = 6.dp),
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant, letterSpacing = 1.4.sp)
 }

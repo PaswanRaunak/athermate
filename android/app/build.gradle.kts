@@ -15,8 +15,8 @@ android {
         applicationId = "io.ather.pro"
         minSdk = 26
         targetSdk = 34
-        versionCode = providers.gradleProperty("athrVersionCode").orNull?.toInt() ?: 19
-        versionName = providers.gradleProperty("athrVersionName").orNull ?: "1.1.16"
+        versionCode = providers.gradleProperty("athrVersionCode").orNull?.toInt() ?: 20
+        versionName = providers.gradleProperty("athrVersionName").orNull ?: "1.2.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // Personal values stay out of the repo: set in local.properties (gitignored).
@@ -97,6 +97,14 @@ dependencies {
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
     implementation("androidx.work:work-runtime-ktx:2.9.1")
 
+    // QR pairing: CameraX frames decoded by the embedded ZXing core
+    val cameraVersion = "1.3.4"
+    implementation("androidx.camera:camera-core:$cameraVersion")
+    implementation("androidx.camera:camera-camera2:$cameraVersion")
+    implementation("androidx.camera:camera-lifecycle:$cameraVersion")
+    implementation("androidx.camera:camera-view:$cameraVersion")
+    implementation("com.google.zxing:core:3.5.3")
+
     val roomVersion = "2.6.1"
     implementation("androidx.room:room-runtime:$roomVersion")
     implementation("androidx.room:room-ktx:$roomVersion")
@@ -112,13 +120,22 @@ dependencies {
 
 // Native computation is packaged for physical phones and emulators.
 val nativeOutput = layout.buildDirectory.dir("generated/rustJniLibs")
+// On Windows a bare "bash" can resolve to WSL's, which cannot run Windows paths.
+val bashExecutable: String = if (System.getProperty("os.name").contains("windows", ignoreCase = true)) {
+    System.getenv("ATHER_BASH")
+        ?: listOf("C:\\Program Files\\Git\\bin\\bash.exe", "C:\\Program Files (x86)\\Git\\bin\\bash.exe")
+            .firstOrNull { File(it).isFile }
+        ?: "bash"
+} else {
+    "bash"
+}
 val buildRust by tasks.registering(Exec::class) {
     inputs.files(fileTree("../../rust/ather-math") { exclude("target/**") })
     inputs.file("../../scripts/build-android-rust.sh")
     outputs.dir(nativeOutput)
     doFirst { delete(nativeOutput.get().asFile) }
     environment("ANDROID_HOME", android.sdkDirectory.absolutePath)
-    commandLine("bash", file("../../scripts/build-android-rust.sh").absolutePath,
+    commandLine(bashExecutable, file("../../scripts/build-android-rust.sh").absolutePath,
         nativeOutput.get().asFile.absolutePath)
 }
 android.sourceSets.getByName("main").jniLibs.srcDir(nativeOutput)
