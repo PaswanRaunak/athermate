@@ -4,10 +4,39 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- AtherMate mark: the companion heart with a charge bolt cut through it.
-         One even-odd path so the themed (monochrome) layer keeps the cutout. -->
+    <!-- AtherMate identity: the scooter silhouette inspired by the original
+         Athr+ artwork, redrawn as one solid Ather-green glyph — disc wheels
+         with dark rims and hubs, and the heart set into the body panel. -->
     <path
         android:fillColor="#00E59B"
         android:fillType="evenOdd"
-        android:pathData="M54,76 C40,64 30,55 30,45.5 C30,38 36,32.5 43,32.5 C47.6,32.5 51.8,35 54,39 C56.2,35 60.4,32.5 65,32.5 C72,32.5 78,38 78,45.5 C78,55 68,64 54,76 Z M58,40 L46,58 L53.5,58 L51,72 L64,52 L56,52 L61,40 Z" />
+        android:pathData="M34,57.5 A10.5,10.5 0 1,0 34,78.5 A10.5,10.5 0 1,0 34,57.5 Z M34,64.6 A3.4,3.4 0 1,0 34,71.4 A3.4,3.4 0 1,0 34,64.6 Z" />
+    <path
+        android:fillColor="#00E59B"
+        android:fillType="evenOdd"
+        android:pathData="M74,57.5 A10.5,10.5 0 1,0 74,78.5 A10.5,10.5 0 1,0 74,57.5 Z M74,64.6 A3.4,3.4 0 1,0 74,71.4 A3.4,3.4 0 1,0 74,64.6 Z" />
+    <path
+        android:pathData="M34,68 m-7.3,0 a7.3,7.3 0 1,1 14.6,0 a7.3,7.3 0 1,1 -14.6,0"
+        android:strokeColor="#101726"
+        android:strokeWidth="1.6" />
+    <path
+        android:pathData="M74,68 m-7.3,0 a7.3,7.3 0 1,1 14.6,0 a7.3,7.3 0 1,1 -14.6,0"
+        android:strokeColor="#101726"
+        android:strokeWidth="1.6" />
+    <path
+        android:fillColor="#00E59B"
+        android:pathData="M25,47 C32,44.2 43,44.2 50,47 L52,56 L58,56 L65,37 L78,46 L71,58 L64,62 L44,62 L36,57 Z" />
+    <path
+        android:pathData="M57.5,33 L72.5,33"
+        android:strokeColor="#00E59B"
+        android:strokeWidth="3"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M65,38 L65,33.2"
+        android:strokeColor="#00E59B"
+        android:strokeWidth="3"
+        android:strokeLineCap="round" />
+    <path
+        android:fillColor="#101726"
+        android:pathData="M37,55.5 C34.2,53.2 32.5,51.5 32.5,49.9 C32.5,48.6 33.5,47.6 34.7,47.6 C35.6,47.6 36.5,48.1 37,49 C37.5,48.1 38.4,47.6 39.3,47.6 C40.5,47.6 41.5,48.6 41.5,49.9 C41.5,51.5 39.8,53.2 37,55.5 Z" />
 </vector>
