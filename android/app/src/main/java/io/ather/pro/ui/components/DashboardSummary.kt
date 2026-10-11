@@ -31,6 +31,7 @@ import io.ather.pro.domain.charging.ChargingControl
 import io.ather.pro.domain.model.ConnectionStatus
 import io.ather.pro.domain.model.ScooterArtwork
 import io.ather.pro.domain.model.ScooterDashboardState
+import io.ather.pro.domain.range.PersonalizedEfficiency
 import io.ather.pro.domain.range.RangeEstimator
 import io.ather.pro.ui.visuals.ChargingGlow
 import io.ather.pro.ui.visuals.cardOutline
@@ -43,6 +44,10 @@ import kotlin.math.roundToInt
 
 internal fun number(value: Double?, decimals: Int = 0): String =
     value?.takeIf(Double::isFinite)?.let { String.format(Locale.getDefault(), "%.${decimals}f", it) } ?: "—"
+
+/** Observed-ride efficiency over the last 30 days; null until real trips exist. */
+private fun learnedEfficiency(state: ScooterDashboardState) =
+    PersonalizedEfficiency.fromTrips(state.recentTrips, System.currentTimeMillis())
 
 @Composable
 fun FreshnessLabel(state: ScooterDashboardState, modifier: Modifier = Modifier) {
@@ -72,7 +77,7 @@ fun EnergySummaryCard(state: ScooterDashboardState, limit: ChargeLimitController
     val drawingId = drawing?.let { context.resources.getIdentifier(it.drawable, "drawable", context.packageName) } ?: 0
     val supplied = drawing?.takeIf { drawingId != 0 }
     val soc = state.telemetry?.batterySoc?.takeIf { it.isFinite() && it in 0.0..100.0 }
-    val range = RangeEstimator.current(state.telemetry, state.modelForRange)
+    val range = RangeEstimator.current(state.telemetry, state.modelForRange, learnedEfficiency(state))
     val charging = ChargingControl.isActivelyCharging(state.telemetry)
     val plugged = ChargingControl.isPluggedIn(state.telemetry)
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -210,13 +215,18 @@ fun EnergySummaryCard(state: ScooterDashboardState, limit: ChargeLimitController
 
 @Composable
 fun ModeRangeCard(state: ScooterDashboardState) {
-    val ranges = RangeEstimator.modes(state.telemetry, state.modelForRange)
+    val learned = PersonalizedEfficiency.fromTrips(state.recentTrips, System.currentTimeMillis())
+    val ranges = RangeEstimator.modes(state.telemetry, state.modelForRange, learned)
     val colors = MaterialTheme.colorScheme
     Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             val soc = state.telemetry?.batterySoc?.takeIf { it.isFinite() && it in 0.0..100.0 }
             Text(soc?.let { "Range at ${number(it)}% battery" } ?: "Range by ride mode",
                 style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            if (learned != null) {
+                Text("Adjusted to your riding — ${number(learned.whPerKm, 1)} Wh/km observed over ${number(learned.observedKm, 0)} km in ${learned.windowDays} days.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             if (ranges.isEmpty()) Text("Mode ranges appear when reported by your scooter.", style = MaterialTheme.typography.bodySmall)
             ranges.chunked(2).forEach { pair ->
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -278,7 +288,8 @@ private fun friendlyStatus(raw: String?): String? = when (raw?.trim()?.lowercase
 @Composable
 fun ChargeEstimateCard(state: ScooterDashboardState, target: Int) {
     val estimate = RangeEstimator.target(state.telemetry, target,
-        state.settings.selectedModel.usableCapacityWh, state.settings.tariffRatePerKWh, state.modelForRange)
+        state.settings.selectedModel.usableCapacityWh, state.settings.tariffRatePerKWh,
+        state.modelForRange, learnedEfficiency(state))
     val colors = MaterialTheme.colorScheme
     Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {

@@ -63,8 +63,25 @@ class DashboardLocalStore(context: Context) {
         dao.saveTripBaseline(TripBaselineEntity.fromDomain(baseline))
     }
 
+    fun loadChargingSessions(): List<ChargingSessionEntity> =
+        dao.loadChargingSessions(MAX_CHARGING_SESSIONS)
+
+    fun addChargingSession(session: ChargingSessionEntity) {
+        dao.insertChargingSession(session)
+        dao.pruneChargingSessions(MAX_CHARGING_SESSIONS)
+    }
+
+    fun clearChargingSessions() {
+        dao.clearChargingSessions()
+    }
+
+    fun getMeta(key: String): String? = dao.getMeta(key)
+
+    fun putMeta(key: String, value: String) = dao.putMeta(MetaEntity(key, value))
+
     companion object {
         const val MAX_TRIPS = 100
         const val MAX_PERSISTED_SAMPLES = io.ather.pro.domain.battery.BatteryHistory.MAX_SAMPLES
+        const val MAX_CHARGING_SESSIONS = 200
     }
 }

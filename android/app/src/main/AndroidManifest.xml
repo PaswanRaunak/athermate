@@ -83,6 +83,18 @@
                 android:resource="@xml/scooter_status_widget_info" />
         </receiver>
 
+        <receiver
+            android:name=".widget.ChargingWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_charging_title">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/charging_widget_info" />
+        </receiver>
+
     </application>
 
 </manifest>

@@ -179,6 +179,16 @@ data class TripRecord(
     val isOfficialRide: Boolean = false
 )
 
+/** One completed charging session, derived from charging-flag transitions. */
+data class ChargingSessionRecord(
+    val startedAtMs: Long,
+    val endedAtMs: Long,
+    val startSoc: Double?,
+    val endSoc: Double?,
+    val energyKWh: Double?,
+    val costInr: Double?
+)
+
 data class ScooterTelemetry(
     val batterySoc: Double? = null,
     val rangeKm: Double? = null,
@@ -342,6 +352,7 @@ data class ScooterDashboardState(
     val telemetryHistory: List<TelemetrySample> = emptyList(),
     val rideHistory: List<io.ather.pro.domain.battery.RideSample> = emptyList(),
     val vehicleProfile: VehicleProfile? = null,
+    val chargingSessions: List<ChargingSessionRecord> = emptyList(),
     val remoteChargingCommand: RemoteChargingCommand = RemoteChargingCommand()
 ) {
     /** Detected scooter wins for range and ride modes. The saved choice remains only when the profile cannot name a model. */

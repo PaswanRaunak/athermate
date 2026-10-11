@@ -1,5 +1,6 @@
 package io.ather.pro.data.repository
 
+import io.ather.pro.TestTelemetry
 import io.ather.pro.data.api.AtherApiClient
 import io.ather.pro.data.api.AtherCloudApi
 import io.ather.pro.domain.charging.ChargeLimitController
@@ -17,10 +18,12 @@ import okhttp3.WebSocket
 import okio.ByteString
 import org.junit.After
 import org.junit.Assert.*
+import org.junit.Before
 import org.junit.Test
 
 /** Real repository + parser + dispatcher, with a quiet cloud transport and virtual clock. */
 class ChargeLimitSnapshotTest {
+    @Before fun installTelemetryEngine() = TestTelemetry.install()
     private var now = 1_000_000L
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
     private val cloud = QuietCloud()

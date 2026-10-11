@@ -26,7 +26,10 @@ data class DashboardWidgetSnapshot(
     val currentMode: String? = null,
     val vehicleName: String = "ATHR+",
     val limitPercent: Int? = null,
-    val estimatedStopAtMs: Long? = null
+    val estimatedStopAtMs: Long? = null,
+    /** Vehicle-reported charge ETAs in minutes; used by the charging widget. */
+    val etaEightyMin: Double? = null,
+    val etaFullMin: Double? = null
 ) {
     val socText: String
         get() = socPercent?.let { String.format(Locale.getDefault(), "%.0f%%", it) } ?: "—"
@@ -49,6 +52,12 @@ data class DashboardWidgetSnapshot(
         private const val KEY_SYNC = "sync"
         private const val KEY_CONN = "conn"
         private const val KEY_UPDATED = "updated"
+        private const val KEY_ETA_EIGHTY = "eta_eighty_min"
+        private const val KEY_ETA_FULL = "eta_full_min"
+
+        private fun etaBits(value: Long): Double? =
+            value.takeIf { it != Long.MIN_VALUE }?.let(Double::fromBits)
+                ?.takeIf { it.isFinite() && it > 0.0 }
 
         fun fromDashboard(state: ScooterDashboardState, limit: ChargeLimitController.Snapshot = ChargeLimitController.Snapshot()): DashboardWidgetSnapshot {
             val telemetry = state.telemetry
@@ -82,7 +91,9 @@ data class DashboardWidgetSnapshot(
                 limitPercent = limit.percent.takeIf { limit.enabled },
                 estimatedStopAtMs = limit.estimate?.stopAtMs?.takeIf {
                     limit.enabled && limit.status == ChargeLimitController.Status.MONITORING
-                }
+                },
+                etaEightyMin = telemetry?.timeToEightyChargeMin?.takeIf { it.isFinite() && it > 0.0 },
+                etaFullMin = telemetry?.timeToFullChargeMin?.takeIf { it.isFinite() && it > 0.0 }
             )
         }
 
@@ -107,7 +118,9 @@ data class DashboardWidgetSnapshot(
                     currentMode = prefs.getString("current_mode", null),
                     vehicleName = prefs.getString("vehicle_name", "ATHR+") ?: "ATHR+",
                     limitPercent = prefs.getInt("limit_percent", -1).takeIf { it in 0..100 },
-                    estimatedStopAtMs = prefs.getLong("estimated_stop_at", 0).takeIf { it > 0 }
+                    estimatedStopAtMs = prefs.getLong("estimated_stop_at", 0).takeIf { it > 0 },
+                    etaEightyMin = etaBits(prefs.getLong(KEY_ETA_EIGHTY, Long.MIN_VALUE)),
+                    etaFullMin = etaBits(prefs.getLong(KEY_ETA_FULL, Long.MIN_VALUE))
                 )
             }.getOrDefault(DashboardWidgetSnapshot())
         }
@@ -138,6 +151,16 @@ data class DashboardWidgetSnapshot(
                     putBoolean("charging", snapshot.charging)
                     putString("current_mode", snapshot.currentMode)
                     putString("vehicle_name", snapshot.vehicleName)
+                    if (snapshot.etaEightyMin != null) {
+                        putLong(KEY_ETA_EIGHTY, snapshot.etaEightyMin.toRawBits())
+                    } else {
+                        remove(KEY_ETA_EIGHTY)
+                    }
+                    if (snapshot.etaFullMin != null) {
+                        putLong(KEY_ETA_FULL, snapshot.etaFullMin.toRawBits())
+                    } else {
+                        remove(KEY_ETA_FULL)
+                    }
                 }
                 .apply()
         }

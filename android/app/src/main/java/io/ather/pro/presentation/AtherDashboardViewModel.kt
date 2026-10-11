@@ -31,6 +31,10 @@ class AtherDashboardViewModel(
         repository.clearTrips()
     }
 
+    fun clearChargingSessionHistory() {
+        repository.clearChargingSessions()
+    }
+
     fun pauseCharging(): Boolean = repository.pauseCharging()
 
     fun resumeCharging(): Boolean = repository.resumeCharging()

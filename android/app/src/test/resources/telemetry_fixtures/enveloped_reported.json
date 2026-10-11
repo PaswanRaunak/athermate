@@ -26,8 +26,8 @@
         "chargingStatus": "Charging",
         "chargingHeartBeat": "On",
         "chargerConnected": true,
-        "time2FullCharge": 95,
-        "time2EightyCharge": 40,
+        "time2FullCharge": 5700,
+        "time2EightyCharge": 2400,
         "charger_type": "public"
       },
       "telemetry.tpms": {

@@ -10,6 +10,7 @@ import android.util.TypedValue
 import android.view.View
 import android.widget.RemoteViews
 import io.ather.pro.ui.theme.materialColorScheme
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import android.content.res.Configuration
 import java.util.Date
@@ -146,5 +147,73 @@ object WidgetRenderer {
         canvas.drawRoundRect(marker - 3, 0f, marker + 3, 24f, 3f, 3f, paint)
         previousBar = key to bitmap
         return bitmap
+    }
+
+    /**
+     * Charging-progress variant: one big battery percentage, a fill bar and the
+     * vehicle-reported ETA. Deliberately simple — it is also the lock-screen widget.
+     */
+    fun renderCharging(context: Context, snapshot: DashboardWidgetSnapshot, widthDp: Float, heightDp: Float, now: Long): RemoteViews {
+        val scale = context.resources.configuration.fontScale.coerceAtLeast(1f)
+        val height = heightDp / scale
+        val socSize = when {
+            height >= 200 -> 72f
+            height >= 140 -> 56f
+            else -> 44f
+        }
+        val dark = context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
+        val colors = materialColorScheme(dark)
+        val accent = colors.primary.toArgb()
+        val primary = colors.onSurface.toArgb()
+        val secondary = colors.onSurfaceVariant.toArgb()
+        val chargingColor = if (colors.surface.luminance() > 0.5f) 0xFF16A34A.toInt() else 0xFF4ADE80.toInt()
+        val fresh = snapshot.connectionLabel == "LIVE" && now - snapshot.updatedAtMs in 0L..60_000L
+        val charging = snapshot.charging
+        val status = when {
+            snapshot.updatedAtMs == 0L -> "Open app"
+            charging && fresh -> "Charging"
+            charging -> "Charging · saved"
+            else -> "Not charging"
+        }
+        val socInt = snapshot.socPercent?.roundToInt()?.coerceIn(0, 100)
+        val eta = when {
+            !charging || snapshot.etaFullMin == null && snapshot.etaEightyMin == null -> null
+            (snapshot.socPercent ?: 100.0) >= 80.0 || snapshot.etaEightyMin == null ->
+                snapshot.etaFullMin?.let { "Full in ~${it.roundToInt()} min" }
+            else -> buildString {
+                append("80% in ~${snapshot.etaEightyMin.roundToInt()} min")
+                snapshot.etaFullMin?.let { append(" · Full ~${it.roundToInt()} min") }
+            }
+        }
+        fun dp(value: Int) = (value * context.resources.displayMetrics.density).roundToInt()
+        return RemoteViews(context.packageName, R.layout.widget_charging_status).apply {
+            setTextViewText(R.id.widget_charge_state, status)
+            setTextColor(R.id.widget_charge_state,
+                if (charging && fresh) chargingColor else secondary)
+            setTextViewText(R.id.widget_charge_soc, snapshot.socText)
+            setTextColor(R.id.widget_charge_soc, primary)
+            setTextViewTextSize(R.id.widget_charge_soc, TypedValue.COMPLEX_UNIT_SP, socSize)
+            setTextViewText(R.id.widget_charge_eta, eta
+                ?: if (charging) "Waiting for an ETA from the scooter" else snapshot.syncLabel)
+            setTextColor(R.id.widget_charge_eta, secondary)
+            if (socInt != null) {
+                setViewVisibility(R.id.widget_charge_progress, View.VISIBLE)
+                setProgressBar(R.id.widget_charge_progress, 100, socInt, false)
+                if (Build.VERSION.SDK_INT >= 31) {
+                    setColorStateList(R.id.widget_charge_progress, "setProgressTintList",
+                        android.content.res.ColorStateList.valueOf(if (charging) chargingColor else accent))
+                }
+                setContentDescription(R.id.widget_charge_progress,
+                    "Battery at $socInt percent")
+            } else {
+                setViewVisibility(R.id.widget_charge_progress, View.GONE)
+            }
+            setTextViewText(R.id.widget_charge_sync, if (snapshot.updatedAtMs > 0)
+                DateFormat.getTimeFormat(context).format(Date(snapshot.updatedAtMs)) else "Not synced")
+            setTextColor(R.id.widget_charge_sync, secondary)
+            setContentDescription(R.id.widget_charge_root,
+                "AtherMate. Battery ${snapshot.socText}${if (charging) ", charging" else ""}. $status. " +
+                    (eta ?: snapshot.syncLabel))
+        }
     }
 }

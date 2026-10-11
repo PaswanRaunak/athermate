@@ -1,12 +1,15 @@
 package io.ather.pro.domain.range
 
+import io.ather.pro.TestTelemetry
 import io.ather.pro.domain.model.ModeRange
 import io.ather.pro.domain.model.ScooterTelemetry
 import io.ather.pro.domain.model.ScooterModel
 import org.junit.Assert.*
+import org.junit.Before
 import org.junit.Test
 
 class RangeEstimatorTest {
+    @Before fun installTelemetryEngine() = TestTelemetry.install()
     @Test fun calculatesTargetEnergyCostRangeAndEtaFromReportedData() {
         val telemetry = ScooterTelemetry(batterySoc = 50.0, rangeKm = 40.0, timeToEightyChargeMin = 60.0, timeToFullChargeMin = 150.0)
         val result = RangeEstimator.target(telemetry, 80, 3_240.0, 8.0)!!

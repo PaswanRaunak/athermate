@@ -11,28 +11,11 @@ import android.util.SizeF
 import android.widget.RemoteViews
 import io.ather.pro.MainActivity
 import io.ather.pro.R
-import io.ather.pro.appContainer
-import io.ather.pro.service.ChargingCheckWorker
-import androidx.work.Constraints
-import androidx.work.ExistingWorkPolicy
-import androidx.work.NetworkType
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.WorkManager
-import androidx.work.workDataOf
 
 class ScooterStatusWidgetProvider : AppWidgetProvider() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == ACTION_REFRESH) {
-            val container = context.applicationContext.appContainer
-            if (container.monitoring.state.value.running) {
-                container.repository.refresh()
-            } else {
-                val request = OneTimeWorkRequestBuilder<ChargingCheckWorker>()
-                    .setInputData(workDataOf(ChargingCheckWorker.MANUAL_REFRESH to true))
-                    .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
-                    .build()
-                WorkManager.getInstance(context).enqueueUniqueWork("scootscribe-widget-refresh", ExistingWorkPolicy.KEEP, request)
-            }
+            DashboardWidgetUpdater.enqueueManualRefresh(context)
             DashboardWidgetUpdater.refreshAll(context)
             return
         }

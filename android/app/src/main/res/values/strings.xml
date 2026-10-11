@@ -9,4 +9,7 @@
     <string name="widget_connection_offline">OFFLINE</string>
     <string name="widget_modes_empty">Open app to sync mode ranges</string>
     <string name="widget_refresh_description">Refresh scooter readings</string>
+    <string name="widget_charging_title">AtherMate Charging</string>
+    <string name="widget_charging_description">Big battery percentage with charge progress and ETA while charging. Also available on the lock screen (Android 15)</string>
+    <string name="widget_charge_state_placeholder">Not charging</string>
 </resources>

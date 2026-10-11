@@ -43,6 +43,9 @@ fun AtherDashboardScreen(
         }
         item { SectionLabel("Ride modes") }
         item { ModeRangeCard(dashboard) }
+        item { SectionLabel("Insights") }
+        item { RideInsightsCard(trips = dashboard.recentTrips,
+            petrolPricePerLitre = dashboard.settings.petrolPricePerLitre) }
         item { SectionLabel("Battery") }
         item { BatteryHistoryCard(dashboard = dashboard, chargeLimitPercent = chargeLimit.percent.takeIf { chargeLimit.enabled }) }
         item { TextButton(onClick = { details = !details }, modifier = Modifier.fillMaxWidth()) {
@@ -63,6 +66,8 @@ fun AtherDashboardScreen(
                 }
             }
             item { TripHistoryPanel(trips = dashboard.recentTrips, tariffRate = dashboard.settings.tariffRatePerKWh, onClear = onClearTrips) }
+            item { SectionLabel("Maintenance") }
+            item { MaintenanceCard(dashboard) }
             item { RiderCockpitCard(dashboard) }
             dashboard.telemetry?.let { telemetry ->
                 item { ConnectivityMetaCard(telemetry) }

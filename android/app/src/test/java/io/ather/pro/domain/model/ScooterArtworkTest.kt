@@ -89,9 +89,9 @@ class ScooterArtworkTest {
 
     @Test fun accountTitleUsesNicknameOrAccountFallback() {
         assertEquals("Blue Bolt", ScooterArtwork.accountTitle("  Blue Bolt  "))
-        assertEquals("Your Athr+ account", ScooterArtwork.accountTitle(null))
-        assertEquals("Your Athr+ account", ScooterArtwork.accountTitle(""))
-        assertEquals("Your Athr+ account", ScooterArtwork.accountTitle("   "))
+        assertEquals("Your AtherMate account", ScooterArtwork.accountTitle(null))
+        assertEquals("Your AtherMate account", ScooterArtwork.accountTitle(""))
+        assertEquals("Your AtherMate account", ScooterArtwork.accountTitle("   "))
     }
 
     @Test fun coloursFor450SAreListedInOrder() {

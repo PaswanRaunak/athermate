@@ -13,6 +13,9 @@ object EstimatedChargeCutoff {
             return if (state.estimate != null) state.copy(estimate = null) else state
         }
         val at = readingAtMs ?: return state
+        // Readings the freshness rules reject — stale, or timestamped ahead of the
+        // phone clock — must not arm or move the timer.
+        if (nowMs - at !in 0L..ChargingEvidence.MAX_SOURCE_AGE_MS) return state
         if (at <= (state.estimateBlockedThroughMs ?: 0L)) return state.copy(estimate = null)
         val existing = state.estimate
         // Cached snapshots must never move an already-armed deadline later.

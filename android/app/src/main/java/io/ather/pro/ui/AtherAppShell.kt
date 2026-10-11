@@ -58,6 +58,7 @@ fun AtherAppShell(
     onArtworkColourChange: (String?) -> Unit,
     onTariffChange: (Double) -> Unit,
     onClearTrips: () -> Unit,
+    onClearChargingSessions: () -> Unit,
     onPauseCharging: () -> Unit,
     onResumeCharging: () -> Unit,
     onClearRemoteChargingLatch: () -> Unit,
@@ -118,6 +119,7 @@ fun AtherAppShell(
                             item { ChargingActions(dashboard.telemetry, dashboard.remoteChargingCommand,
                                 onPauseCharging, onResumeCharging, onRetryLatch = onClearRemoteChargingLatch) }
                             item { MonitoringCard(monitoring, chargeLimit.enabled, onMonitoringChange) }
+                            item { ChargingHistoryCard(dashboard.chargingSessions, onClear = onClearChargingSessions) }
                         }
                         Destination.MAP -> LazyColumn(contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             item { FreshnessLabel(dashboard) }

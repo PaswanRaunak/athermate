@@ -70,6 +70,11 @@ class MonitoringController(
             combine(repository.dashboard, repository.chargeLimit) { dashboard, limit -> dashboard to limit }
                 .collect { (dashboard, limit) ->
                     DashboardWidgetUpdater.publish(context, dashboard, limit)
+                    // Cheap latch evaluation; reminders fire once per boundary, not per cycle.
+                    if (dashboard.telemetry != null) {
+                        io.ather.pro.util.MaintenanceCenter.getInstance(context)
+                            .evaluate(dashboard.telemetry.odoKm)
+                    }
                     delay(5_000)
                 }
         }

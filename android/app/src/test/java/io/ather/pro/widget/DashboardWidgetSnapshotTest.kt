@@ -1,5 +1,6 @@
 package io.ather.pro.widget
 
+import io.ather.pro.TestTelemetry
 import io.ather.pro.domain.model.ConnectionStatus
 import io.ather.pro.domain.model.ModeRange
 import io.ather.pro.domain.model.ScooterDashboardState
@@ -8,9 +9,11 @@ import io.ather.pro.domain.model.ScooterSettings
 import io.ather.pro.domain.model.ScooterTelemetry
 import io.ather.pro.domain.model.VehicleProfile
 import org.junit.Assert.*
+import org.junit.Before
 import org.junit.Test
 
 class DashboardWidgetSnapshotTest {
+    @Before fun installTelemetryEngine() = TestTelemetry.install()
     private val modeTelemetry = ScooterTelemetry(mode = "Ride", modeRanges = mapOf(
         "SmartEco" to ModeRange(rawRangeKm = 40.0),
         "Eco" to ModeRange(rawRangeKm = 36.0),

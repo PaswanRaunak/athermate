@@ -146,6 +146,7 @@ class MainActivity : ComponentActivity() {
                             onArtworkColourChange = dashboardViewModel::setArtworkColour,
                             onTariffChange = dashboardViewModel::setTariffRate,
                             onClearTrips = dashboardViewModel::clearTripHistory,
+                            onClearChargingSessions = dashboardViewModel::clearChargingSessionHistory,
                             onPauseCharging = { dashboardViewModel.pauseCharging() },
                             onResumeCharging = { dashboardViewModel.resumeCharging() },
                             onClearRemoteChargingLatch = dashboardViewModel::clearRemoteChargingLatch,

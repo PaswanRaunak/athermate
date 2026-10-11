@@ -3,8 +3,16 @@ package io.ather.pro.widget
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
+import io.ather.pro.appContainer
 import io.ather.pro.domain.model.ScooterDashboardState
 import io.ather.pro.domain.charging.ChargeLimitController
+import io.ather.pro.service.ChargingCheckWorker
+import androidx.work.Constraints
+import androidx.work.ExistingWorkPolicy
+import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.workDataOf
 
 object DashboardWidgetUpdater {
     private var previousSnapshot: DashboardWidgetSnapshot? = null
@@ -35,15 +43,33 @@ object DashboardWidgetUpdater {
         refreshAll(context)
     }
 
+    /** Manual refresh shared by every widget: live connection refreshes directly, else a WorkManager check. */
+    fun enqueueManualRefresh(context: Context) {
+        val container = context.applicationContext.appContainer
+        if (container.monitoring.state.value.running) {
+            container.repository.refresh()
+        } else {
+            val request = OneTimeWorkRequestBuilder<ChargingCheckWorker>()
+                .setInputData(workDataOf(ChargingCheckWorker.MANUAL_REFRESH to true))
+                .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+                .build()
+            WorkManager.getInstance(context).enqueueUniqueWork("scootscribe-widget-refresh", ExistingWorkPolicy.KEEP, request)
+        }
+    }
+
     fun refreshAll(context: Context) {
         val appContext = context.applicationContext
         val manager = AppWidgetManager.getInstance(appContext)
-        val ids = manager.getAppWidgetIds(
-            ComponentName(appContext, ScooterStatusWidgetProvider::class.java)
-        )
-        if (ids.isEmpty()) return
-        for (id in ids) {
-            ScooterStatusWidgetProvider.updateAppWidget(appContext, manager, id)
+        for (provider in listOf(ScooterStatusWidgetProvider::class.java, ChargingWidgetProvider::class.java)) {
+            val ids = manager.getAppWidgetIds(ComponentName(appContext, provider))
+            if (ids.isEmpty()) continue
+            for (id in ids) {
+                when (provider) {
+                    ChargingWidgetProvider::class.java ->
+                        ChargingWidgetProvider.updateAppWidget(appContext, manager, id)
+                    else -> ScooterStatusWidgetProvider.updateAppWidget(appContext, manager, id)
+                }
+            }
         }
     }
 }

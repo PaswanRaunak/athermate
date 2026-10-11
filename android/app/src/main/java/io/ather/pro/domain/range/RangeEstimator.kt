@@ -17,8 +17,13 @@ data class ChargeTargetEstimate(
 object RangeEstimator {
     private fun valid(value: Double?) = value?.takeIf { it.isFinite() && it >= 0.0 }
 
-    /** Anchor mode ratios to the current range, so every tile refers to the same battery reading. */
-    fun modes(telemetry: ScooterTelemetry?, model: ScooterModel? = null): List<RideModeRange> {
+    /**
+     * Anchor mode ratios to the current range, so every tile refers to the same battery reading.
+     * When a [LearnedEfficiency] from observed rides is supplied, the anchor becomes the
+     * personalized range and every tile shifts with it while keeping Ather's mode ratios.
+     */
+    fun modes(telemetry: ScooterTelemetry?, model: ScooterModel? = null,
+        learned: PersonalizedEfficiency.LearnedEfficiency? = null): List<RideModeRange> {
         val reported = telemetry?.modeRanges.orEmpty().entries.groupBy { RideMode.from(it.key) }
         val active = RideMode.from(telemetry?.mode)
         val ranges = RideMode.entries.filter { it.supportedBy(model) }.mapNotNull { mode ->
@@ -27,7 +32,8 @@ object RangeEstimator {
                 ?: values.firstNotNullOfOrNull { valid(it.rawRangeKm) }
             km?.let { RideModeRange(mode.displayName, it, mode == active) }
         }
-        val currentRange = valid(telemetry?.rangeKm)
+        val currentRange = PersonalizedEfficiency.currentRangeKm(telemetry, learned, model)
+            ?: valid(telemetry?.rangeKm)
         val activeRange = ranges.firstOrNull { it.active }?.km?.takeIf { it > 0 }
         // Ratios work whether the API sends full-charge references or remaining
         // ranges. Never multiply already-reduced ranges by the SoC a second time.
@@ -41,15 +47,20 @@ object RangeEstimator {
         } else ranges
     }
 
-    fun current(telemetry: ScooterTelemetry?, model: ScooterModel? = null): Double? = valid(telemetry?.rangeKm)
-        ?: modes(telemetry, model).firstOrNull { it.active }?.km
+    fun current(telemetry: ScooterTelemetry?, model: ScooterModel? = null,
+        learned: PersonalizedEfficiency.LearnedEfficiency? = null): Double? =
+        PersonalizedEfficiency.currentRangeKm(telemetry, learned, model)
+            ?: valid(telemetry?.rangeKm)
+            ?: modes(telemetry, model).firstOrNull { it.active }?.km
 
-    fun target(telemetry: ScooterTelemetry?, target: Int, capacityWh: Double, tariff: Double, model: ScooterModel? = null): ChargeTargetEstimate? {
+    fun target(telemetry: ScooterTelemetry?, target: Int, capacityWh: Double, tariff: Double,
+        model: ScooterModel? = null,
+        learned: PersonalizedEfficiency.LearnedEfficiency? = null): ChargeTargetEstimate? {
         val soc = telemetry?.batterySoc?.takeIf { it.isFinite() && it in 0.0..100.0 } ?: return null
         if (!capacityWh.isFinite() || capacityWh <= 0 || !tariff.isFinite() || tariff < 0) return null
         val percent = target.coerceIn(0, 100).toDouble()
         val values = io.ather.pro.domain.computation.TelemetryComputation.requireEngine().chargeEstimate(
-            soc, percent, capacityWh, tariff, current(telemetry, model) ?: Double.NaN,
+            soc, percent, capacityWh, tariff, current(telemetry, model, learned) ?: Double.NaN,
             telemetry.timeToEightyChargeMin ?: Double.NaN, telemetry.timeToFullChargeMin ?: Double.NaN)
         return ChargeTargetEstimate(values[0], values[1], values[2], valid(values[3]), valid(values[4]))
     }

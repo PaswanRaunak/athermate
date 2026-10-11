@@ -22,6 +22,8 @@ interface ScooterRepository {
 
     fun clearTrips()
 
+    fun clearChargingSessions()
+
     fun pauseCharging(): Boolean
 
     fun resumeCharging(): Boolean

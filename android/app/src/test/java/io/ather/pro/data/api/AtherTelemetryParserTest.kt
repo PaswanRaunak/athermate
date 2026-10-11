@@ -10,6 +10,7 @@ import org.junit.Test
 
 /**
  * Deterministic parser tests over sanitized Cerberus-shaped fixtures.
+ * Charge-time counters arrive in raw seconds and are normalized to domain minutes.
  * No live network, credentials, or location logging.
  */
 class AtherTelemetryParserTest {

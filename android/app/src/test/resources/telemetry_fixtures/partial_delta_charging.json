@@ -5,8 +5,8 @@
         "chargingStatus": "Charging",
         "chargingHeartBeat": "On",
         "chargerConnected": "On",
-        "time2FullCharge": 60,
-        "time2EightyCharge": 25,
+        "time2FullCharge": 3600,
+        "time2EightyCharge": 1500,
         "chargerType": "home"
       },
       "scooters.remote_charging": {

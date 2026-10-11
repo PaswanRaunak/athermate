@@ -78,4 +78,16 @@ interface DashboardDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun putMeta(meta: MetaEntity)
+
+    @Query("SELECT * FROM charging_sessions ORDER BY startedAtMs DESC LIMIT :limit")
+    fun loadChargingSessions(limit: Int): List<ChargingSessionEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun insertChargingSession(session: ChargingSessionEntity)
+
+    @Query("DELETE FROM charging_sessions WHERE startedAtMs NOT IN (SELECT startedAtMs FROM charging_sessions ORDER BY startedAtMs DESC LIMIT :keep)")
+    fun pruneChargingSessions(keep: Int)
+
+    @Query("DELETE FROM charging_sessions")
+    fun clearChargingSessions()
 }

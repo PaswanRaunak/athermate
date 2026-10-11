@@ -77,6 +77,9 @@ class AtherRepository(
     private var lastHistoryPersistAt = 0L
     private var evidence = ChargingEvidence()
     private val chargeRate = ChargingRateTracker()
+    private val chargeSessions = io.ather.pro.domain.charging.ChargingSessionTracker(clock)
+    private var lastOpenSessionPersistAt = 0L
+    private var persistedOpenStartedAt = 0L
     @Volatile private var generation = 0L
     private var reconnectAttempt = 0
     @Volatile private var snapshotConnectedAt: Long? = null
@@ -120,7 +123,19 @@ class AtherRepository(
         val trips = localStore?.loadTrips().orEmpty()
         val history = localStore?.loadTelemetryHistory().orEmpty()
         val rides = localStore?.loadRideHistory().orEmpty()
-        _dashboard.update { it.copy(recentTrips = trips, telemetryHistory = history, rideHistory = rides) }
+        val sessions = localStore?.loadChargingSessions().orEmpty().map {
+            io.ather.pro.domain.model.ChargingSessionRecord(
+                startedAtMs = it.startedAtMs, endedAtMs = it.endedAtMs,
+                startSoc = it.startSoc, endSoc = it.endSoc,
+                energyKWh = it.energyKWh, costInr = it.costInr)
+        }
+        chargeSessions.restore(runCatching {
+            Gson().fromJson(
+                localStore?.getMeta(KEY_OPEN_CHARGE_SESSION) ?: "null",
+                io.ather.pro.domain.charging.ChargingSessionTracker.Open::class.java)
+        }.getOrNull())
+        _dashboard.update { it.copy(recentTrips = trips, telemetryHistory = history,
+            rideHistory = rides, chargingSessions = sessions) }
         }.onFailure {
             _dashboard.update { it.copy(errorMessage = "Saved history is unavailable. Live scooter data can still connect.") }
         }
@@ -160,8 +175,8 @@ class AtherRepository(
         val now = clock()
         processChargeLimit(now)
         val state = _dashboard.value
-        // Incoming packets do not postpone the fixed snapshot check.
-        if (ChargeSnapshotRefresh.isDue(true, state.connection, snapshotConnectedAt, now)) {
+        // Incoming packets do not postpone the fixed snapshot check; a disabled limiter stops it.
+        if (ChargeSnapshotRefresh.isDue(_chargeLimit.value.enabled, state.connection, snapshotConnectedAt, now)) {
             connect(refreshSnapshot = true)
         }
     }
@@ -170,6 +185,7 @@ class AtherRepository(
     fun applyCredentials(token: String, uuid: String) {
         if (token.isBlank() || uuid.isBlank()) return
         val changed = authToken != token || vehicleUuid != uuid
+        val previousVehicle = vehicleUuid
         authToken = token
         vehicleUuid = uuid
         authInvalidated = false
@@ -178,6 +194,11 @@ class AtherRepository(
             generation += 1
             evidence = ChargingEvidence()
             chargeRate.reset()
+            if (uuid != previousVehicle) {
+                // A different scooter must not inherit the previous vehicle's open charge.
+                chargeSessions.restore(null)
+                persistedOpenStartedAt = 0L
+            }
             _dashboard.update { it.copy(telemetry = null, lastUpdated = null, batteryUpdatedAt = null,
                 chargingUpdatedAt = null, batteryReportedAt = null, chargingRatePercentPerMinute = null,
                 remoteChargingCommand = RemoteChargingCommand()) }
@@ -195,6 +216,8 @@ class AtherRepository(
         preferences?.edit()?.remove("vehicle_profile")?.apply()
         evidence = ChargingEvidence()
         chargeRate.reset()
+        chargeSessions.restore(null)
+        persistedOpenStartedAt = 0L
         authToken = null
         vehicleUuid = null
         manuallyDisconnected = true
@@ -382,6 +405,32 @@ class AtherRepository(
         val currentSettings = _dashboard.value.settings
         val usableCapacityWh = currentSettings.selectedModel.usableCapacityWh
 
+        // 2. Charging session latch — charging-flag transitions become billable sessions.
+        val completedSession = chargeSessions.observe(
+            charging = mergedTelemetry.charging == true,
+            soc = mergedTelemetry.batterySoc,
+            capacityWh = usableCapacityWh,
+            tariffPerKWh = currentSettings.tariffRatePerKWh
+        )
+        val updatedSessions = if (completedSession != null) {
+            val record = io.ather.pro.domain.model.ChargingSessionRecord(
+                startedAtMs = completedSession.startedAtMs, endedAtMs = completedSession.endedAtMs,
+                startSoc = completedSession.startSoc, endSoc = completedSession.endSoc,
+                energyKWh = completedSession.energyKWh, costInr = completedSession.costInr)
+            persist {
+                addChargingSession(io.ather.pro.data.local.ChargingSessionEntity(
+                    startedAtMs = completedSession.startedAtMs, endedAtMs = completedSession.endedAtMs,
+                    startSoc = completedSession.startSoc, endSoc = completedSession.endSoc,
+                    energyKWh = completedSession.energyKWh, costInr = completedSession.costInr))
+            }
+            (listOf(record) + _dashboard.value.chargingSessions)
+                .distinctBy { it.startedAtMs }
+                .take(DashboardLocalStore.MAX_CHARGING_SESSIONS)
+        } else {
+            _dashboard.value.chargingSessions
+        }
+        persistOpenChargeSnapshot(observedAt)
+
         // 1. Calculate Mode Efficiencies (Algorithm A)
         val soc = mergedTelemetry.batterySoc ?: 0.0
         val remainingEnergyWh = usableCapacityWh * (soc / 100.0)
@@ -522,6 +571,7 @@ class AtherRepository(
                 chargingUpdatedAt = evidence.chargingAt,
                 gpsUpdatedAt = if (rawTelemetry.gps?.latitude != null && rawTelemetry.gps.longitude != null) now else it.gpsUpdatedAt,
                 recentTrips = updatedTrips,
+                chargingSessions = updatedSessions,
                 packetCount = currentCount,
                 recentPacketTimestamps = updatedTimestamps,
                 telemetryHistory = updatedHistory,
@@ -676,6 +726,11 @@ class AtherRepository(
         scope.launch { storageReady.await(); persist { saveTrips(emptyList()) } }
     }
 
+    override fun clearChargingSessions() {
+        _dashboard.update { it.copy(chargingSessions = emptyList()) }
+        scope.launch { storageReady.await(); persist { clearChargingSessions() } }
+    }
+
     override fun refresh() {
         if (_dashboard.value.connection == ConnectionStatus.CONNECTING && socket != null) return
         loadVehicleProfileAndRides()
@@ -814,6 +869,8 @@ class AtherRepository(
         }
 
         private const val HISTORY_PERSIST_INTERVAL_MS = 15_000L
+        const val KEY_OPEN_CHARGE_SESSION = "open_charge_session"
+        private const val OPEN_SESSION_PERSIST_INTERVAL_MS = 30_000L
     }
 
     private fun persist(action: DashboardLocalStore.() -> Unit) {
@@ -827,5 +884,27 @@ class AtherRepository(
         lastSavedSoc = batterySoc
         lastSavedTimestamp = timestampMs
         persist { saveTripBaseline(TripBaseline(odometerKm, batterySoc, timestampMs)) }
+    }
+
+    /**
+     * Crash-safe resume: the open session lives in meta so a restart mid-charge can
+     * restore it. Throttled because telemetry can arrive every few seconds; a session
+     * start persists immediately, SoC progress at most every [OPEN_SESSION_PERSIST_INTERVAL_MS].
+     */
+    private fun persistOpenChargeSnapshot(nowMs: Long) {
+        val open = chargeSessions.current()
+        if (open != null) {
+            val newSession = open.startedAtMs != persistedOpenStartedAt
+            if (newSession || nowMs - lastOpenSessionPersistAt >= OPEN_SESSION_PERSIST_INTERVAL_MS) {
+                persist { putMeta(KEY_OPEN_CHARGE_SESSION, Gson().toJson(open)) }
+                persistedOpenStartedAt = open.startedAtMs
+                lastOpenSessionPersistAt = nowMs
+            }
+        } else if (persistedOpenStartedAt != 0L) {
+            // Session ended or was discarded as a phantom — the snapshot must not outlive it.
+            persist { putMeta(KEY_OPEN_CHARGE_SESSION, "null") }
+            persistedOpenStartedAt = 0L
+            lastOpenSessionPersistAt = 0L
+        }
     }
 }
