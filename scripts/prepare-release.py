@@ -55,7 +55,7 @@ with zipfile.ZipFile(args.apk) as archive:
             parser.error('Private account data found in APK. Release blocked.')
 
 args.output.mkdir(parents=True, exist_ok=True)
-name = f'Athr+-v{version}-release.apk'
+name = f'AtherMate-v{version}-release.apk'
 target = args.output / name
 if args.apk.resolve() != target.resolve():
     shutil.copy2(args.apk, target)

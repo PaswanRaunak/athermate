@@ -1,38 +1,53 @@
 <p align="center">
-  <img src="docs/assets/app_icon.png" width="120" height="120" alt="Athr+ Logo" />
+  <img src="docs/assets/athermate_icon.png" width="120" height="120" alt="AtherMate logo" />
 </p>
 
-<h1 align="center">Athr+</h1>
+<h1 align="center">AtherMate</h1>
 
-<p align="center"><b>An independent companion app and home-screen widget for your electric scooter.</b></p>
+<p align="center"><b>An independent companion app and home-screen widget for your Ather electric scooter.</b></p>
+
+> [!NOTE]
+> **Credits** — AtherMate is a fork of **[Athr+](https://github.com/karmugilen/athr-plus)**, created and open-sourced by **[@karmugilen](https://github.com/karmugilen)**. The original app, its architecture, documentation, and the entire v1.1.x line are the original author's work; this fork exists only because Athr+ was worth continuing. Please star and support the [upstream project](https://github.com/karmugilen/athr-plus) too.
+
+## What this fork adds
+
+AtherMate continues where Athr+ left off, on top of the original v1.1.16:
+
+- **Charging session history:** every detected charge is logged locally with start/end battery percentage, duration, estimated energy, and rupee cost at your tariff, grouped into calendar-month totals on the Charging tab. The in-progress session survives process restarts.
+- **Charging widget:** a second, deliberately simple widget for the home screen and lock screen — one big battery percentage, a charge progress bar, and the vehicle-reported ETA. Manual refresh works even when monitoring is stopped.
+- **Weekly and monthly ride insights:** distance, riding time, rupees saved against an assumed 45 km/L petrol bike at your petrol price, and the most efficient ride of the period, computed from trips already stored on the device.
+- **Personalised range learning:** your actual consumption (distance-weighted Wh/km over the last 30 days of trips) shifts the dashboard range and per-mode tiles toward how you really ride, blended with Ather's reported range by observed distance.
+- **Direct Bluetooth connection:** the app can talk to scooter-side peripherals over BLE without the cloud in the middle.
+- **QR pairing, maintenance reminders, notification progress, profile persistence, and a refreshed brand identity.**
+
+| Charging tab (light) | Charging tab (dark) |
+| :---: | :---: |
+| <img src="docs/assets/fork/charging_light.png" width="240" alt="AtherMate charging tab, light theme" /> | <img src="docs/assets/fork/charging_dark.png" width="240" alt="AtherMate charging tab, dark theme" /> |
 
 ## Download and update
 
-**[Download the latest release](https://github.com/karmugilen/athr-plus/releases/latest)** · **[v1.1.16 release notes](https://github.com/karmugilen/athr-plus/releases/tag/v1.1.16)**
+**[Download the latest release](https://github.com/PaswanRaunak/athermate/releases/latest)** · **[v1.2.1 release notes](https://github.com/PaswanRaunak/athermate/releases/tag/v1.2.1)**
 
-Requires Android 8.0 or newer. Download the `Athr+-v1.1.16-release.apk` asset and install it over your existing Athr+ app. Android may ask you to allow installation from your browser or file manager. Keep the existing app installed to retain your login, settings, and history.
+Requires Android 8.0 or newer. Download the `AtherMate-v1.2.1-release.apk` asset and install it. If you are coming from the original Athr+ app, install AtherMate as a new app first — it is a separate build with its own signing identity and does not install over Athr+. Android may ask you to allow installation from your browser or file manager.
 
-Version **1.1.16 (build 19)** is a signed, non-debuggable release with R8 code optimization and resource shrinking. Its signing certificate matches the previous public v1.1.2 APK; the APK file checksum changes with each release.
-
-This version improves phone and OTP sign-in with searchable international calling codes and adds smoother map headings with refresh-rate requests up to 144 Hz on supported devices. It includes update notices inside the app. Users on v1.1.2 need to install this release manually once. Future published stable releases appear in the app, with release notes, a download button, and Android's installation confirmation. You can also use **Settings → App updates → Check now**. Checks run on opening the app at most once every six hours and approximately daily in the background; Android may delay background work. A source push alone does not trigger an app update.
+Version **1.2.1 (build 22)** is a signed, non-debuggable release with R8 code optimization and resource shrinking. Published stable releases appear in the app with release notes, a download button, and Android's installation confirmation; you can also use **Settings → App updates → Check now**. Checks run on opening the app at most once every six hours and approximately daily in the background; Android may delay background work. A source push alone does not trigger an app update. Downloaded APKs are checked for package, version, signing certificate, size, and checksum before installation.
 
 ## Support the project
 
-If you find the app useful, consider supporting the project.
+If the app is useful to you, consider supporting the people behind it.
 
-**UPI:** `karmugilrc-1@okaxis`
-
-In the app, open **Settings → Support the project → Support via UPI** to choose an installed UPI payment app. You can also copy the UPI ID and pay directly in your preferred app.
+- **Original Athr+ author** ([@karmugilen](https://github.com/karmugilen)) — UPI: `karmugilrc-1@okaxis`. AtherMate would not exist without the original project.
+- **This fork** — the in-app **Settings → Support the project** screen sends contributions to the fork's maintainer.
 
 ## Why This Project Exists
 
-I built **Athr+** because the official app became frustrating to use:
+The original author built **Athr+** because the official app became frustrating to use:
 
 - **Missing from Play Store**: If your phone has an unlocked bootloader or runs a custom ROM, the official app doesn't show up in the Google Play Store.
 - **Developer Options Block**: If you keep Developer Options enabled, the app constantly stops you with "Turn off developer options" warnings.
 - **Paid for Pro, Couldn't Use It**: Even after paying for the official Ather Pro pack, the app gave a frustrating experience with artificial device blocks.
 
-So I created and open-sourced **Athr+** to give everyone full, unrestricted access to their own scooter—live battery status, smart charging limits, home screen widgets, and ride history—without any annoying device blocks.
+Athr+ gave everyone full, unrestricted access to their own scooter—live battery status, smart charging limits, home screen widgets, and ride history—without any annoying device blocks. AtherMate keeps that mission going.
 
 ## Features
 
@@ -43,8 +58,8 @@ So I created and open-sourced **Athr+** to give everyone full, unrestricted acce
 - **Weekly and monthly ride insights:** distance, riding time, rupees saved against an assumed 45 km/L petrol bike at your petrol price, and the most efficient ride of the week or month, computed from the trips already stored on the device.
 - **Personalised range learning:** your actual consumption (distance-weighted Wh/km over the last 30 days of trips, with noise floors) shifts the dashboard range and per-mode tiles toward how you really ride, blended with Ather's reported range by observed distance (up to 70% weight at 300 km). With no vehicle-reported range at all, 10+ observed kilometres are enough to stand in for it.
 - **Material 3 appearance:** system light/dark mode and wallpaper-derived colors on Android 12 and newer, with a Material palette on older phones.
-- **Compact home-screen widget:** battery, current range, clear per-mode range rows, sync time, connection status, and a limiter bar when enabled. Widget colors follow system appearance changes.
-- **Model-independent battery artwork:** an animated battery while charging and the original scooter launcher icon.
+- **Home-screen widgets:** the classic widget with battery, current range, clear per-mode range rows, sync time, connection status, and a limiter bar when enabled, plus the charging widget for the lock screen. Widget colors follow system appearance changes.
+- **Model-independent battery artwork:** an animated battery while charging and the scooter launcher icon.
 - **Rust calculations:** native history selection, range scaling, and charging estimates for ARM and x86 devices.
 - **Phone sign-in:** searchable country calling codes (India +91 by default), international number paste, country-aware validation, and SMS code resend with a countdown. OTP delivery for each country depends on the account provider.
 - **Smooth map interaction:** display-paced heading animation and a request for the fastest supported refresh rate up to 144 Hz while a map is open. Actual frame rate depends on the device, Android settings, and WebView.
@@ -53,7 +68,7 @@ So I created and open-sourced **Athr+** to give everyone full, unrestricted acce
 
 ## Screenshots
 
-These screenshots show an earlier release. Version 1.1.15 updates the theme, battery artwork, and widget layout.
+Upstream screenshots (Athr+ v1.1.15-era dashboard, charge limiter, and map) — see the fork section above for the current Charging tab.
 
 | Dashboard | Charge limit | Street map |
 | :---: | :---: | :---: |
@@ -78,7 +93,7 @@ Configure `android/local.properties` with your SDK path (`sdk.dir=/path/to/Andro
 # Development build
 JAVA_HOME=/path/to/jdk-21 ./android/gradlew -p android assembleDebug --console=plain
 
-# Optimized public build: configure the original signing key first.
+# Optimized public build: configure the signing key first.
 # See docs/APP-UPDATES.md for the four signing environment variables.
 JAVA_HOME=/path/to/jdk-21 ./android/gradlew -p android assembleRelease --console=plain
 JAVA_HOME=/path/to/jdk-21 python3 scripts/prepare-release.py android/app/build/outputs/apk/release/app-release.apk
@@ -126,3 +141,5 @@ Keystores, local properties, APKs, and local API session files are excluded from
 > **Notice**: This application was developed independently using exclusively publicly available information, standard open network protocols, and resources accessible online. It contains no proprietary source code, confidential intellectual property, or trade secrets.
 >
 > This project is completely independent and is not affiliated with, authorized, maintained, sponsored, or endorsed by any vehicle manufacturer, automotive brand, or corporate entity. All trademarks, service marks, trade names, and product names are the property of their respective owners. The software is provided solely for personal interoperability, research, educational, and hobbyist purposes.
+>
+> AtherMate is a fork of [Athr+](https://github.com/karmugilen/athr-plus) by [@karmugilen](https://github.com/karmugilen); the original project's work is acknowledged with thanks.
