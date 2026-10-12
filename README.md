@@ -20,9 +20,31 @@ AtherMate continues where Athr+ left off, on top of the original v1.1.16:
 - **Direct Bluetooth connection:** the app can talk to scooter-side peripherals over BLE without the cloud in the middle.
 - **QR pairing, maintenance reminders, notification progress, profile persistence, and a refreshed brand identity.**
 
-| Charging tab (light) | Charging tab (dark) |
+## Screenshots
+
+The current app (account name pixelated in Settings):
+
+| Dashboard | Charging history | Charger connected |
+| :---: | :---: | :---: |
+| <img src="docs/assets/fork/dashboard_light.png" width="240" alt="AtherMate dashboard, light theme" /> | <img src="docs/assets/fork/charging_light.png" width="240" alt="Charging history tab, light theme" /> | <img src="docs/assets/fork/charger_connected.png" width="240" alt="Charger connected charge-limit sheet" /> |
+| <img src="docs/assets/fork/dashboard_dark.png" width="240" alt="AtherMate dashboard, dark theme" /> | <img src="docs/assets/fork/charging_dark.png" width="240" alt="Charging history tab, dark theme" /> | <img src="docs/assets/fork/qr_scanner.png" width="240" alt="QR pairing scanner" /> |
+
+| Settings | Charging notification |
 | :---: | :---: |
-| <img src="docs/assets/fork/charging_light.png" width="240" alt="AtherMate charging tab, light theme" /> | <img src="docs/assets/fork/charging_dark.png" width="240" alt="AtherMate charging tab, dark theme" /> |
+| <img src="docs/assets/fork/settings_light.png" width="240" alt="Settings with profile, name pixelated" /> | <img src="docs/assets/fork/notification_charging.png" width="360" alt="Charging progress notification" /> |
+
+<details>
+<summary>Earlier upstream screenshots (Athr+ v1.1.x)</summary>
+
+| Dashboard | Charge limit | Street map |
+| :---: | :---: | :---: |
+| <img src="docs/assets/screenshot_dashboard.png" width="240" alt="Earlier dashboard" /> | <img src="docs/assets/screenshot_charging.png" width="240" alt="Earlier charge limiter" /> | <img src="docs/assets/screenshot_map.jpg" width="240" alt="Street map" /> |
+
+<details>
+<summary>Earlier home-screen widget</summary>
+<img src="docs/assets/screenshot_widget.png" width="420" alt="Earlier home-screen widget" />
+</details>
+</details>
 
 ## Download and update
 
@@ -65,19 +87,6 @@ Athr+ gave everyone full, unrestricted access to their own scooter—live batter
 - **Smooth map interaction:** display-paced heading animation and a request for the fastest supported refresh rate up to 144 Hz while a map is open. Actual frame rate depends on the device, Android settings, and WebView.
 - **Maps and ride analytics:** Leaflet street maps, vehicle heading, local trip history, and available battery/efficiency information.
 - **Verified app updates:** public GitHub release checks without a GitHub login; downloaded APKs are checked for package, version, signing certificate, size, and available checksum before installation.
-
-## Screenshots
-
-Upstream screenshots (Athr+ v1.1.15-era dashboard, charge limiter, and map) — see the fork section above for the current Charging tab.
-
-| Dashboard | Charge limit | Street map |
-| :---: | :---: | :---: |
-| <img src="docs/assets/screenshot_dashboard.png" width="240" alt="Earlier dashboard" /> | <img src="docs/assets/screenshot_charging.png" width="240" alt="Earlier charge limiter" /> | <img src="docs/assets/screenshot_map.jpg" width="240" alt="Street map" /> |
-
-<details>
-<summary>Earlier home-screen widget</summary>
-<img src="docs/assets/screenshot_widget.png" width="420" alt="Earlier home-screen widget" />
-</details>
 
 ## Build
 
