@@ -31,7 +31,7 @@ The current app (account name pixelated in Settings):
 
 | Settings | Charging notification |
 | :---: | :---: |
-| <img src="docs/assets/fork/settings_light.png" width="240" alt="Settings with profile, name pixelated" /> | <img src="docs/assets/fork/notification_charging.png" width="360" alt="Charging progress notification" /> |
+| <img src="docs/assets/fork/settings_light.png" width="240" alt="Settings with profile, name pixelated" /> | <img src="docs/assets/fork/notification_charging.png" width="420" alt="Charging progress notification" /> |
 
 <details>
 <summary>Earlier upstream screenshots (Athr+ v1.1.x)</summary>
