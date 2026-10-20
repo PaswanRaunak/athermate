@@ -47,11 +47,13 @@ fun AtherAppShell(
     chargeLimit: ChargeLimitController.Snapshot,
     monitoring: MonitoringState,
     ble: BleUiState,
+    vehicleLink: io.ather.pro.ble.VehicleLinkController,
     onBleScan: () -> Unit,
     onBleStopScan: () -> Unit,
     onBleConnect: (BleDeviceUi) -> Unit,
     onBleDisconnect: () -> Unit,
     onBleClearLogs: () -> Unit,
+    onBleRefreshAdapterState: () -> Unit = {},
     onMonitoringChange: (Boolean) -> Unit,
     onRefresh: () -> Unit,
     onModelChange: (ScooterModel) -> Unit,
@@ -125,7 +127,7 @@ fun AtherAppShell(
                             item { FreshnessLabel(dashboard) }
                             item { MapSection(gps = dashboard.telemetry?.gps, gpsUpdatedAt = dashboard.gpsUpdatedAt) }
                         }
-                        Destination.BLUETOOTH -> BluetoothScreen(ble, onBleScan, onBleStopScan, onBleConnect, onBleDisconnect, onBleClearLogs)
+                        Destination.BLUETOOTH -> BluetoothScreen(ble, vehicleLink, onBleScan, onBleStopScan, onBleConnect, onBleDisconnect, onBleClearLogs, onBleRefreshAdapterState)
                         Destination.SETTINGS -> SettingsScreen(session, dashboard, monitoring, chargeLimit.enabled,
                             updateState, onCheckUpdate, onOpenUpdate, onMonitoringChange, onModelChange,
                             onArtworkColourChange, onTariffChange, onLogout)

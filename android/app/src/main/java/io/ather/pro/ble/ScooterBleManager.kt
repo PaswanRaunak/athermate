@@ -49,6 +49,19 @@ class ScooterBleManager(private val context: Context) {
     private val _state = MutableStateFlow(BleUiState(adapterPresent = bm.adapter != null, adapterEnabled = bm.adapter?.isEnabled == true))
     val state: StateFlow<BleUiState> = _state.asStateFlow()
 
+    private val btReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(ctx: Context, intent: android.content.Intent) {
+            if (intent.action == BluetoothAdapter.ACTION_STATE_CHANGED) {
+                refreshAdapterState()
+            }
+        }
+    }
+
+    init {
+        context.registerReceiver(btReceiver, android.content.IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED))
+        refreshAdapterState()
+    }
+
     private fun update(transform: (BleUiState) -> BleUiState) { _state.value = transform(_state.value) }
 
     private fun log(message: String) {
@@ -57,7 +70,11 @@ class ScooterBleManager(private val context: Context) {
         update { it.copy(logs = (it.logs + "$stamp  $message").takeLast(200)) }
     }
 
-    fun refreshAdapterState() = update { it.copy(adapterPresent = adapter != null, adapterEnabled = adapter?.isEnabled == true) }
+    fun refreshAdapterState() = update {
+        val present = adapter != null
+        val enabled = runCatching { adapter?.isEnabled == true }.getOrDefault(false)
+        it.copy(adapterPresent = present, adapterEnabled = enabled)
+    }
 
     fun startScan() {
         refreshAdapterState()
@@ -89,6 +106,10 @@ class ScooterBleManager(private val context: Context) {
         stopScan()
         val d: BluetoothDevice = a.getRemoteDevice(device.address)
         log("Connecting ${device.name.ifBlank { device.address }}…")
+        if (d.bondState == BluetoothDevice.BOND_NONE) {
+            log("Initiating OS Bluetooth pairing for ${d.address}…")
+            runCatching { d.createBond() }
+        }
         update { it.copy(connection = BleConnection.CONNECTING, connectingTo = device.name.ifBlank { device.address }) }
         gatt?.close()
         gatt = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
@@ -162,7 +183,13 @@ class ScooterBleManager(private val context: Context) {
         }
 
         override fun onDescriptorWrite(g: BluetoothGatt, descriptor: BluetoothGattDescriptor, status: Int) {
-            if (status != BluetoothGatt.GATT_SUCCESS) log("Subscribe failed ${descriptor.characteristic.uuid} ($status)")
+            if (status != BluetoothGatt.GATT_SUCCESS) {
+                log("Subscribe failed ${descriptor.characteristic.uuid} ($status)")
+                if (status == 245 || status == 15 || status == BluetoothGatt.GATT_INSUFFICIENT_AUTHENTICATION) {
+                    log("Authentication required ($status) — triggering OS Bluetooth pairing dialog…")
+                    runCatching { g.device.createBond() }
+                }
+            }
             writeNextCccd(g)
         }
 

@@ -9,6 +9,7 @@ import io.ather.pro.ble.ScooterBleManager
 class BleViewModel(private val ble: ScooterBleManager) : ViewModel() {
     val ui = ble.state
 
+    fun refreshAdapterState() = ble.refreshAdapterState()
     fun startScan() = ble.startScan()
     fun stopScan() = ble.stopScan()
     fun connect(device: BleDeviceUi) = ble.connect(device)

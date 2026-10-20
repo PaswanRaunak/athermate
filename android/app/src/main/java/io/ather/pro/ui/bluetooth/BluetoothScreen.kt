@@ -31,7 +31,9 @@ import androidx.core.content.ContextCompat
 import io.ather.pro.ble.BleConnection
 import io.ather.pro.ble.BleDeviceUi
 import io.ather.pro.ble.BleUiState
+import io.ather.pro.ble.BleVehicleProfile
 import io.ather.pro.ble.QrPairing
+import io.ather.pro.ble.VehicleLinkController
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -45,14 +47,21 @@ import java.util.Locale
 @Composable
 fun BluetoothScreen(
     state: BleUiState,
+    vehicleLink: VehicleLinkController,
     onScan: () -> Unit,
     onStopScan: () -> Unit,
     onConnect: (BleDeviceUi) -> Unit,
     onDisconnect: () -> Unit,
-    onClearLogs: () -> Unit
+    onClearLogs: () -> Unit,
+    onRefreshAdapterState: () -> Unit = {}
 ) {
     val context = LocalContext.current
     var granted by remember { mutableStateOf(hasBlePermissions(context)) }
+
+    LaunchedEffect(Unit) {
+        onRefreshAdapterState()
+    }
+
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
         granted = result.values.all { it }
         if (granted) onScan()
@@ -85,6 +94,13 @@ fun BluetoothScreen(
     fun handleQrPayload(text: String) {
         val payload = QrPairing.parse(text)
         when {
+            payload.token != null -> {
+                vehicleLink.registerToken(payload.token)
+                if (!vehicleLink.state.value.enabled) {
+                    vehicleLink.setEnabled(true)
+                }
+                qrNotice = "Pairing token registered: ${payload.token}. Searching for vehicle beacon…"
+            }
             payload.address != null -> {
                 qrTarget = payload
                 qrNotice = "Looking for ${payload.address}. If nothing appears, put the scooter into pairing mode."
@@ -138,6 +154,8 @@ fun BluetoothScreen(
                 }
             }
         }
+        item { VehicleLinkCard(vehicleLink) }
+
         item {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -341,4 +359,92 @@ private fun requiredBlePermissions(): List<String> =
 
 private fun hasBlePermissions(context: Context): Boolean = requiredBlePermissions().all {
     ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
+}
+
+/**
+ * Vehicle BLE link (Ather "Blueberry" profile): scan for the vehicle beacon,
+ * bond, connect as GATT client and stream call/media/navigation payloads to
+ * the dash. Protocol and pairing flow mirror the reverse-engineered app.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun VehicleLinkCard(controller: VehicleLinkController) {
+    val context = LocalContext.current
+    val link by controller.state.collectAsState()
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { }
+
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Vehicle link", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "Connect to the scooter dash over Bluetooth: calls, media and navigation on the dash",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(checked = link.enabled, onCheckedChange = { on ->
+                    if (on) {
+                        val wanted = buildList {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                add(Manifest.permission.BLUETOOTH_CONNECT)
+                                add(Manifest.permission.BLUETOOTH_SCAN)
+                                add(Manifest.permission.BLUETOOTH_ADVERTISE)
+                                add(Manifest.permission.READ_PHONE_STATE)
+                            } else add(Manifest.permission.ACCESS_FINE_LOCATION)
+                            add(Manifest.permission.POST_NOTIFICATIONS)
+                        }.filter { ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED }
+                        if (wanted.isEmpty()) controller.setEnabled(true)
+                        else permissionLauncher.launch(wanted.toTypedArray()).let {
+                            // Grant callback re-enables via direct call below.
+                            controller.setEnabled(true)
+                        }
+                    } else controller.setEnabled(false)
+                })
+            }
+
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                BleValue("Status", link.link.name.lowercase().replaceFirstChar { it.uppercase() })
+                BleValue("Vehicle", link.deviceName ?: link.deviceAddress ?: "—")
+                BleValue("Ignition", if (link.ignitionOn) "On" else "—")
+            }
+
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "Pairing token  ${link.token}",
+                    style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace,
+                    modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis
+                )
+                TextButton(onClick = {
+                    context.getSystemService(ClipboardManager::class.java)
+                        .setPrimaryClip(ClipData.newPlainText("token", link.token))
+                }) { Text("Copy") }
+            }
+
+            link.lastError?.let { err ->
+                Text(err, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+            }
+
+            if (link.link == io.ather.pro.ble.VehicleLinkController.LinkStatus.CONNECTED) {
+                Text("Test pushes to the dash", style = MaterialTheme.typography.labelLarge)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilledTonalButton(onClick = { controller.sendCall("Mom", ringing = true) }) { Text("Incoming call") }
+                    FilledTonalButton(onClick = { controller.sendMedia("Kaleidoscope", "Ather FM") }) { Text("Now playing") }
+                    FilledTonalButton(onClick = { controller.sendTbt("Turn left onto MG Road", BleVehicleProfile.TBT_TURN_LEFT, 180) }) { Text("Navigation") }
+                    FilledTonalButton(onClick = { controller.sendWhatsapp("Mom", "Ride safe!") }) { Text("WhatsApp") }
+                }
+            }
+
+            if (link.logs.isNotEmpty()) {
+                Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = MaterialTheme.shapes.small) {
+                    Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        link.logs.takeLast(20).forEach { line ->
+                            Text(line, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace)
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

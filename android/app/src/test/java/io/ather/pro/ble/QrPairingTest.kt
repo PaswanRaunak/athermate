@@ -65,4 +65,43 @@ class QrPairingTest {
         assertFalse(payload.recognised)
         assertEquals(raw, payload.raw)
     }
+
+    @Test
+    fun `ather dash qr url with scan path yields token`() {
+        val payload = QrPairing.parse("https://app.atherenergy.com/bluetooth/scan/AB23CD45")
+        assertEquals("AB23CD45", payload.token)
+        assertTrue(payload.recognised)
+    }
+
+    @Test
+    fun `ather dash qr url with pair path yields token`() {
+        val payload = QrPairing.parse("https://app.atherenergy.com/bluetooth/pair/XY9876ZW")
+        assertEquals("XY9876ZW", payload.token)
+    }
+
+    @Test
+    fun `myvehicle deep link with token query yields token`() {
+        val payload = QrPairing.parse("myvehicle://bluetooth/pair?token=QR5678TY")
+        assertEquals("QR5678TY", payload.token)
+    }
+
+    @Test
+    fun `ather url with token query parameter yields token`() {
+        val payload = QrPairing.parse("https://app.atherenergy.com/bluetooth/scan?token=QQ1122QQ")
+        assertEquals("QQ1122QQ", payload.token)
+    }
+
+    @Test
+    fun `bare dash token yields token`() {
+        val payload = QrPairing.parse("AB23CD45")
+        assertEquals("AB23CD45", payload.token)
+        assertNull(payload.address)
+    }
+
+    @Test
+    fun `ather url with mac and token yields both`() {
+        val payload = QrPairing.parse("https://app.atherenergy.com/bluetooth/scan/AB23CD45?mac=AA%3ABB%3ACC%3ADD%3AEE%3AFF")
+        assertEquals("AB23CD45", payload.token)
+        assertEquals("AA:BB:CC:DD:EE:FF", payload.address)
+    }
 }

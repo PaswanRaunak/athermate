@@ -12,4 +12,5 @@
     <string name="widget_charging_title">AtherMate Charging</string>
     <string name="widget_charging_description">Big battery percentage with charge progress and ETA while charging. Also available on the lock screen (Android 15)</string>
     <string name="widget_charge_state_placeholder">Not charging</string>
+    <string name="notif_channel_vehicle">Vehicle link</string>
 </resources>

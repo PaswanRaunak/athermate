@@ -27,6 +27,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.ather.pro.ble.QrPairing
 import io.ather.pro.data.auth.AuthStep
 import io.ather.pro.presentation.AtherDashboardViewModel
 import io.ather.pro.presentation.AuthViewModel
@@ -68,6 +69,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         openUpdates = intent.getBooleanExtra(GithubAppUpdateRepository.OPEN_UPDATES, false)
+        handleVehiclePairingLink(intent)
         enableEdgeToEdge()
 
         ChargingNotificationManager.getInstance(applicationContext).createNotificationChannels()
@@ -135,11 +137,13 @@ class MainActivity : ComponentActivity() {
                             chargeLimit = chargeLimit,
                             monitoring = monitoring,
                             ble = ble,
+                            vehicleLink = appContainer.vehicleLink,
                             onBleScan = bleViewModel::startScan,
                             onBleStopScan = bleViewModel::stopScan,
                             onBleConnect = bleViewModel::connect,
                             onBleDisconnect = bleViewModel::disconnect,
                             onBleClearLogs = bleViewModel::clearLogs,
+                            onBleRefreshAdapterState = bleViewModel::refreshAdapterState,
                             onMonitoringChange = appContainer.monitoring::setAlwaysEnabled,
                             onRefresh = dashboardViewModel::refresh,
                             onModelChange = dashboardViewModel::setScooterModel,
@@ -195,6 +199,15 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         if (intent.getBooleanExtra(GithubAppUpdateRepository.OPEN_UPDATES, false)) openUpdates = true
+        handleVehiclePairingLink(intent)
+    }
+
+    /** Dash QR pairing delivers the token via myvehicle:// or https://app.atherenergy.com/bluetooth/scan/... */
+    private fun handleVehiclePairingLink(intent: Intent?) {
+        if (intent?.action != Intent.ACTION_VIEW) return
+        val uri = intent.data ?: return
+        val token = QrPairing.parse(uri.toString()).token ?: return
+        appContainer.vehicleLink.registerToken(token)
     }
 
     override fun onStart() {
