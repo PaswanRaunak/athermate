@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.BluetoothDisabled
 import androidx.compose.material.icons.filled.BluetoothSearching
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -254,6 +255,9 @@ fun BluetoothScreen(
                         }
                         Text(device.address, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
+                    FilledTonalIconButton(onClick = { vehicleLink.connectDirect(device.address) }) {
+                        Icon(Icons.Default.Link, contentDescription = "Connect vehicle link to this device")
+                    }
                     SignalBars(device.rssi)
                 }
             }
@@ -420,6 +424,23 @@ private fun VehicleLinkCard(controller: VehicleLinkController) {
                     context.getSystemService(ClipboardManager::class.java)
                         .setPrimaryClip(ClipData.newPlainText("token", link.token))
                 }) { Text("Copy") }
+            }
+
+            var manualToken by remember { mutableStateOf("") }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = manualToken,
+                    onValueChange = { manualToken = it.take(32) },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    label = { Text("Token from dash QR") },
+                    textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace)
+                )
+                TextButton(enabled = manualToken.isNotBlank(), onClick = {
+                    controller.registerToken(manualToken.trim())
+                    if (!controller.state.value.enabled) controller.setEnabled(true)
+                    manualToken = ""
+                }) { Text("Use") }
             }
 
             link.lastError?.let { err ->

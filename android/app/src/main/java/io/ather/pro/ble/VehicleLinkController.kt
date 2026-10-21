@@ -124,6 +124,27 @@ class VehicleLinkController(private val context: Context) {
 
     fun restart() { stopInternal(); if (_state.value.enabled) startInternal(autoReconnect = true) }
 
+    /**
+     * Connect the profile client straight to a scanned device, bypassing the
+     * token-beacon search. Bonds first when needed, then runs the standard
+     * subscribe chain — if the vehicle lacks the profile it ends in
+     * PROFILE_MISMATCH, which is itself a useful answer.
+     */
+    fun connectDirect(address: String) {
+        val device = runCatching { adapter?.getRemoteDevice(address) }.getOrNull() ?: run {
+            log("connectDirect: no device for $address (Bluetooth off?)"); return
+        }
+        scanner?.stop(leScanner)
+        log("direct connect to ${device.address}")
+        if (device.bondState == BluetoothDevice.BOND_BONDED) {
+            setLink(LinkStatus.CONNECTING, device)
+            ensureClient().connect(device)
+        } else {
+            setLink(LinkStatus.PAIRING, device)
+            ensurePairing().startPairing(device)
+        }
+    }
+
     // ---------------------------------------------------------------- start / stop
 
     private fun startInternal(autoReconnect: Boolean) {

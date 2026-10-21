@@ -18,6 +18,7 @@ AtherMate continues where Athr+ left off, on top of the original v1.1.16:
 - **Weekly and monthly ride insights:** distance, riding time, rupees saved against an assumed 45 km/L petrol bike at your petrol price, and the most efficient ride of the period, computed from trips already stored on the device.
 - **Personalised range learning:** your actual consumption (distance-weighted Wh/km over the last 30 days of trips) shifts the dashboard range and per-mode tiles toward how you really ride, blended with Ather's reported range by observed distance.
 - **Direct Bluetooth connection:** the app can talk to scooter-side peripherals over BLE without the cloud in the middle.
+- **Vehicle link (Ather BLE protocol):** pair with the scooter dash by scanning its QR code (or tapping its pairing link) and connect over the reverse-engineered Ather BLE profile — incoming calls, media, and navigation reach the dash, and dash buttons (media, volume, ignition) are understood by the phone. Reconnects automatically after Bluetooth restarts or the phone reboots.
 - **QR pairing, maintenance reminders, notification progress, profile persistence, and a refreshed brand identity.**
 
 ## Screenshots
