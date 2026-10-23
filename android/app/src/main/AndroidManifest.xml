@@ -56,6 +56,18 @@
                 <data android:scheme="myvehicle" android:pathPrefix="/bluetooth/" />
                 <data android:scheme="https" android:host="app.atherenergy.com" android:pathPrefix="/bluetooth/" />
             </intent-filter>
+            <!-- Location sharing from Google Maps (same filters as the real Ather app). -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="geo" />
+            </intent-filter>
         </activity>
 
         <provider
@@ -75,6 +87,17 @@
             android:name=".service.VehicleLinkService"
             android:exported="false"
             android:foregroundServiceType="connectedDevice" />
+
+        <!-- Real-WhatsApp bridge (real app: ble_mobile_library.NotificationListener). -->
+        <service
+            android:name=".ble.WhatsAppNotificationListener"
+            android:exported="false"
+            android:label="AtherMate vehicle link"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter android:priority="90000">
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
 
         <receiver
             android:name=".service.BootReceiver"

@@ -12,19 +12,25 @@ import javax.crypto.spec.IvParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
 /**
- * Phone-side beacon advertiser, mirroring BluetoothServer.advertiseBeacon:
- *  - fresh connection: plaintext token, 180 s window
- *  - reconnect: AES/CBC-truncated token, un-timed
+ * Phone-side beacon advertiser, byte-faithful to the real app's BLEAdvertiser.java:
  *
- * Ather bakes a static key/IV into BuildConfig (AESHelper) and truncates the
- * Base64 to chars 4..15 so the payload fits an advertisement. We reproduce the
- * exact shape — obfuscation, not security; the link itself rides OS LE pairing.
+ *   AdvertiseData = includeDeviceName + includeTxPowerLevel + addServiceData(uuid, token)
+ *
+ * NOTE: the real app does NOT put the service UUID in the UUID list. A 128-bit UUID
+ * (18 B) + service-data-with-UUID (29 B) overflows the 31-byte legacy advertisement
+ * and the stack rejects the entire advertisement (ADVERTISE_FAILED_DATA_TOO_LARGE)
+ * — the beacon silently never goes on air. Service-data alone is what the dash needs.
+ *
+ * Crypto: BuildConfig values extracted from the real app (blueberry __4.6.2):
+ * key "Ather#4532121212", IV "Ather@8765232323", AES/CBC, Base64[4..15).
  */
 object VehicleBeaconAdvertiser {
 
-    // Same design as Ather's BuildConfig.SECRET_KEY_STRING / IV_PARAMETER_STRING.
-    private const val SECRET_KEY = "athermate-bt-key"                       // 16 bytes
-    private const val IV = "0123456789abcdef"                              // 16 bytes
+    private const val SECRET_KEY = "Ather#4532121212"                       // 16 bytes
+    private const val IV = "Ather@8765232323"                              // 16 bytes
+
+    /** Wire the controller's log so on-air/failure status is visible in the UI. */
+    @Volatile var logger: ((String) -> Unit)? = null
 
     private var currentCallback: AdvertiseCallback? = null
 
@@ -38,23 +44,46 @@ object VehicleBeaconAdvertiser {
         start(advertiser, token, BleVehicleProfile.FRESH_BEACON_DURATION_MS)
     }
 
-    private fun start(advertiser: BluetoothLeAdvertiser, serviceData: String, timeoutMs: Int) {
+    private fun start(
+        advertiser: BluetoothLeAdvertiser,
+        serviceData: String,
+        timeoutMs: Int,
+        includeTxPower: Boolean = true
+    ) {
         stop(advertiser)
+        // Ather BLEAdvertiser: mode(2)=LOW_LATENCY, connectable, txPower(3)=HIGH.
         val settings = AdvertiseSettings.Builder()
-            .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_BALANCED)
+            .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
             .setConnectable(true)
             .setTimeout(timeoutMs)
-            .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_MEDIUM)
+            .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_HIGH)
             .build()
+        // Exactly the real app's packet — service data only, no UUID list.
         val data = AdvertiseData.Builder()
-            .addServiceUuid(ParcelUuid(BleVehicleProfile.BEACON_SERVICE_DATA_UUID))
+            .setIncludeDeviceName(false)
+            .setIncludeTxPowerLevel(includeTxPower)
             .addServiceData(
                 ParcelUuid(BleVehicleProfile.BEACON_SERVICE_DATA_UUID),
                 serviceData.toByteArray(Charsets.UTF_8)
             )
-            .setIncludeDeviceName(false)
             .build()
-        val callback = object : AdvertiseCallback() {}
+        val callback = object : AdvertiseCallback() {
+            override fun onStartSuccess(settingsInEffect: AdvertiseSettings?) {
+                logger?.invoke(
+                    "beacon ON AIR: \"$serviceData\" (${serviceData.toByteArray(Charsets.UTF_8).size} B payload, " +
+                        "connectable, timeout=${settingsInEffect?.timeout}s)"
+                )
+            }
+
+            override fun onStartFailure(errorCode: Int) {
+                if (errorCode == AdvertiseCallback.ADVERTISE_FAILED_DATA_TOO_LARGE && includeTxPower) {
+                    logger?.invoke("advertise rejected: data too large — retrying without tx-power field")
+                    start(advertiser, serviceData, timeoutMs, includeTxPower = false)
+                } else {
+                    logger?.invoke("ADVERTISE FAILED (code=$errorCode): ${describe(errorCode)} — the dash CANNOT see this phone")
+                }
+            }
+        }
         currentCallback = callback
         advertiser.startAdvertising(settings, data, callback)
     }
@@ -62,6 +91,15 @@ object VehicleBeaconAdvertiser {
     fun stop(advertiser: BluetoothLeAdvertiser?) {
         currentCallback?.let { cb -> runCatching { advertiser?.stopAdvertising(cb) } }
         currentCallback = null
+    }
+
+    private fun describe(code: Int): String = when (code) {
+        AdvertiseCallback.ADVERTISE_FAILED_DATA_TOO_LARGE -> "packet exceeds the 31-byte BLE limit"
+        AdvertiseCallback.ADVERTISE_FAILED_TOO_MANY_ADVERTISERS -> "no free advertiser slot (another app holds it)"
+        AdvertiseCallback.ADVERTISE_FAILED_ALREADY_STARTED -> "already started"
+        AdvertiseCallback.ADVERTISE_FAILED_INTERNAL_ERROR -> "internal stack error"
+        AdvertiseCallback.ADVERTISE_FAILED_FEATURE_UNSUPPORTED -> "advertising unsupported on this device"
+        else -> "unknown"
     }
 
     /** AES/CBC/PKCS5 then Base64[4..15) — byte-identical policy to Ather's encryptToken. */

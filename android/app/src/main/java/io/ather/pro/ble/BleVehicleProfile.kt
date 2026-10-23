@@ -83,6 +83,47 @@ object BleVehicleProfile {
     /** Fresh-connection beacon lifetime; the reconnect beacon is un-timed. */
     const val FRESH_BEACON_DURATION_MS = 180_000
 
+    // ---- Identity (extracted from the real Ather app, blueberry __4.6.2) -----------
+    /** BluetoothServer.listOfScooter — names the dash recognizes as scooter models. */
+    val SCOOTER_NAMES = listOf("Ather", "450", "Rizta")
+
+    /** Vehicle model used to derive the dash-name pad length; Ather default implies 11. */
+    const val DEFAULT_SCOOTER_NAME = "Ather"
+
+    /**
+     * DashboardBTClient.initDashboardBLE: `scooterNamePadLength = 16 - scooterName.length()`.
+     * The dash advertises its name as the token truncated *or underscore-padded* to exactly
+     * this many bytes.
+     */
+    fun scooterNamePadLength(scooterName: String = DEFAULT_SCOOTER_NAME): Int =
+        (16 - scooterName.length).coerceAtLeast(1)
+
+    /**
+     * DashboardBTClient.setUserNameFromHMI: strip ALL whitespace, then truncate UTF-8
+     * bytes to the pad length. Returns the normalized token plus its padded variant
+     * (token + '_' repeated to exactly pad bytes) used for the name scan filter.
+     */
+    fun normalizeToken(rawToken: String, scooterName: String = DEFAULT_SCOOTER_NAME): Pair<String, String> {
+        val pad = scooterNamePadLength(scooterName)
+        val stripped = rawToken.replace(Regex("\\s"), "")
+        val bytes = stripped.toByteArray(Charsets.UTF_8)
+        val normalized = if (bytes.size > pad) String(bytes.copyOf(pad), Charsets.UTF_8) else stripped
+        val padded = normalized.padEnd(pad, '_')
+        return normalized to padded
+    }
+
+    /**
+     * BluetoothClient.setDeviceName: the phone's own Bluetooth adapter name becomes
+     * "<token>'s <scooterName>" (renamed only when different, capped at 19 UTF-8 bytes).
+     * The dash uses this to recognise the owner's phone.
+     */
+    fun phoneBtName(token: String, scooterName: String = DEFAULT_SCOOTER_NAME): String {
+        val full = "$token's $scooterName"
+        val bytes = full.toByteArray(Charsets.UTF_8)
+        return if (bytes.size > 19) String(bytes.copyOf(19), Charsets.UTF_8) else full
+    }
+
+
     // ---- prefs --------------------------------------------------------------------
     const val PREFS_FILE = "vehicle_bt_prefs"
     const val PREF_TOKEN = "qrCodeToken"

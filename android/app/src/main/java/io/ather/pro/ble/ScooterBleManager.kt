@@ -45,6 +45,8 @@ class ScooterBleManager(private val context: Context) {
     private var gatt: BluetoothGatt? = null
     private var scanning = false
     private val pendingCccds = ArrayDeque<BluetoothGattDescriptor>()
+    /** Addresses already announced in the log for the current scan session. */
+    private val loggedNearby = mutableSetOf<String>()
 
     private val _state = MutableStateFlow(BleUiState(adapterPresent = bm.adapter != null, adapterEnabled = bm.adapter?.isEnabled == true))
     val state: StateFlow<BleUiState> = _state.asStateFlow()
@@ -81,6 +83,7 @@ class ScooterBleManager(private val context: Context) {
         val a = adapter
         if (a?.bluetoothLeScanner == null) { log("Bluetooth is off or unavailable"); return }
         if (scanning) return
+        loggedNearby.clear()
         update { it.copy(devices = emptyList(), connection = BleConnection.SCANNING, connectingTo = null) }
         a.bluetoothLeScanner.startScan(
             null,
@@ -128,12 +131,46 @@ class ScooterBleManager(private val context: Context) {
 
     fun clearLogs() = update { it.copy(logs = emptyList()) }
 
+    private fun tokenFromPrefs(): String =
+        context.getSharedPreferences(BleVehicleProfile.PREFS_FILE, Context.MODE_PRIVATE)
+            .getString(BleVehicleProfile.PREF_TOKEN, "").orEmpty()
+
     private val scanCallback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
-            val name = result.scanRecord?.deviceName ?: result.device?.name ?: ""
-            val scooterLike = name.lowercase().let { n -> SCOOTER_HINTS.any(n::contains) } ||
-                    result.scanRecord?.serviceUuids?.any { it.uuid == UART_SERVICE } == true
-            val seen = BleDeviceUi(name.ifBlank { "Unnamed" }, result.device.address, result.rssi, scooterLike)
+            val record = result.scanRecord
+            val name = record?.deviceName ?: result.device?.name ?: ""
+            // The dash (when its pairing screen is open) either carries the pairing
+            // token as FFA0 service data or as its device name — surface both.
+            val ffa0 = record?.getServiceData(android.os.ParcelUuid(BleVehicleProfile.BEACON_SERVICE_DATA_UUID))
+            val ffa0Text = ffa0?.let { String(it, Charsets.UTF_8).trim() }.orEmpty()
+            val tokenCandidates = buildList {
+                val t = tokenFromPrefs()
+                if (t.isNotBlank()) {
+                    add(t)
+                    add(BleVehicleProfile.normalizeToken(t).second)
+                    add(VehicleBeaconAdvertiser.encryptToken(t))
+                }
+            }.filter { it.isNotBlank() }.distinct()
+            val tokenMatch = tokenCandidates.any { cand ->
+                ffa0Text.equals(cand, true) || name.equals(cand, true) ||
+                        name.startsWith(cand, true) || ffa0Text.startsWith(cand, true)
+            }
+            val scooterLike = tokenMatch ||
+                    name.lowercase().let { n -> SCOOTER_HINTS.any(n::contains) } ||
+                    ffa0 != null ||
+                    record?.serviceUuids?.any { it.uuid == UART_SERVICE } == true
+            val seen = BleDeviceUi(
+                name.ifBlank { "Unnamed" },
+                result.device.address,
+                result.rssi,
+                scooterLike
+            )
+            when {
+                tokenMatch -> log("DASH CANDIDATE: \"$name\" (${result.device.address}) serviceData=\"$ffa0Text\" rssi=${result.rssi} — tap the link icon to pair")
+                ffa0 != null -> log("FFA0 beacon: \"$ffa0Text\" from ${result.device.address} rssi=${result.rssi}")
+                result.rssi > -80 && name.isNotBlank() && loggedNearby.add(result.device.address) ->
+                    log("nearby: \"$name\" ${result.device.address} rssi=${result.rssi}")
+            }
             update { st ->
                 val list = st.devices.toMutableList()
                 val index = list.indexOfFirst { it.address == seen.address }

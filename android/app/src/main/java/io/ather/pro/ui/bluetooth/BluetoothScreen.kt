@@ -457,6 +457,27 @@ private fun VehicleLinkCard(controller: VehicleLinkController) {
                 }
             }
 
+            // Real-WhatsApp forwarding needs system notification-listener access.
+            val ctx = LocalContext.current
+            val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+            var notifAccess by remember { mutableStateOf(io.ather.pro.ble.WhatsAppNotificationListener.hasAccess(ctx)) }
+            DisposableEffect(lifecycleOwner) {
+                val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+                    if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                        notifAccess = io.ather.pro.ble.WhatsAppNotificationListener.hasAccess(ctx)
+                    }
+                }
+                lifecycleOwner.lifecycle.addObserver(observer)
+                onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+            }
+            if (!notifAccess) {
+                TextButton(onClick = {
+                    ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                }) { Text("Enable notification access — real WhatsApp on dash") }
+            } else {
+                Text("WhatsApp forwarding active", style = MaterialTheme.typography.labelMedium)
+            }
+
             if (link.logs.isNotEmpty()) {
                 Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = MaterialTheme.shapes.small) {
                     Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {

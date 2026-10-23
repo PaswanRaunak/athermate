@@ -70,6 +70,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         openUpdates = intent.getBooleanExtra(GithubAppUpdateRepository.OPEN_UPDATES, false)
         handleVehiclePairingLink(intent)
+        handleSharedLocation(intent)
         enableEdgeToEdge()
 
         ChargingNotificationManager.getInstance(applicationContext).createNotificationChannels()
@@ -200,14 +201,44 @@ class MainActivity : ComponentActivity() {
         setIntent(intent)
         if (intent.getBooleanExtra(GithubAppUpdateRepository.OPEN_UPDATES, false)) openUpdates = true
         handleVehiclePairingLink(intent)
+        handleSharedLocation(intent)
     }
 
     /** Dash QR pairing delivers the token via myvehicle:// or https://app.atherenergy.com/bluetooth/scan/... */
     private fun handleVehiclePairingLink(intent: Intent?) {
         if (intent?.action != Intent.ACTION_VIEW) return
         val uri = intent.data ?: return
+        if (uri.scheme == "geo") return // handled by handleSharedLocation
         val token = QrPairing.parse(uri.toString()).token ?: return
         appContainer.vehicleLink.registerToken(token)
+    }
+
+    /**
+     * Locations shared from Google Maps — the same entry points the real Ather app
+     * declares (ACTION_SEND text share and geo: links). Parses coordinates/place name
+     * and streams destination + live distance to the dash (t=6/t=9).
+     */
+    private fun handleSharedLocation(intent: Intent?) {
+        when (intent?.action) {
+            Intent.ACTION_SEND -> {
+                val text = intent.getStringExtra(Intent.EXTRA_TEXT)
+                    ?: intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()
+                    ?: return
+                lifecycleScope.launch {
+                    val place = io.ather.pro.ble.SharedLocationParser.parse(text)
+                        ?: io.ather.pro.ble.SharedLocationParser.firstUrl(text)
+                            ?.let { io.ather.pro.ble.SharedLocationParser.resolveShortLink(it) }
+                    if (place != null) appContainer.vehicleLink.setDestination(place)
+                }
+            }
+            Intent.ACTION_VIEW -> {
+                val uri = intent.data ?: return
+                if (uri.scheme != "geo") return
+                io.ather.pro.ble.SharedLocationParser.fromGeo(uri.toString())?.let {
+                    appContainer.vehicleLink.setDestination(it)
+                }
+            }
+        }
     }
 
     override fun onStart() {
