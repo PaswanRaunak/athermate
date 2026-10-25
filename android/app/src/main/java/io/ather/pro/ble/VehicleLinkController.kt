@@ -72,6 +72,7 @@ class VehicleLinkController(private val context: Context) {
     private var gattClient: VehicleGattClientManager? = null
     private var gattServer: VehicleGattServerManager? = null
     private var keepaliveJob: Job? = null
+    private var mediaPollJob: Job? = null
     private var rescanJob: Job? = null
     @Volatile private var lastFixLat = 0.0
     @Volatile private var lastFixLng = 0.0
@@ -273,6 +274,7 @@ class VehicleLinkController(private val context: Context) {
         gattServer?.stop(); gattServer = null
         VehicleBeaconAdvertiser.stop(advertiser)
         keepaliveJob?.cancel(); keepaliveJob = null
+        mediaPollJob?.cancel(); mediaPollJob = null
         destinationJob?.cancel(); destinationJob = null
         unregisterCallFeed()
         io.ather.pro.service.VehicleLinkService.stop(context)
@@ -318,6 +320,11 @@ class VehicleLinkController(private val context: Context) {
                 if (connected) {
                     device?.let { rememberLastConnected(it) }
                     setLink(LinkStatus.CONNECTED, device)
+                    // The real app starts its payload machinery the moment the dash
+                    // connects (BLEServerService initServer callback) — keepalive,
+                    // media poll, and an immediate now-playing push.
+                    startKeepalive()
+                    scope.launch { runCatching { MediaBridge.pollAndPush(context) } }
                     // Ather sends the t=0 connection payload right after the dash
                     // subscribes; queue ours immediately (server drops it until then).
                     serverSendPayload(
@@ -331,8 +338,9 @@ class VehicleLinkController(private val context: Context) {
                     )
                     registerCallFeed()
                 } else {
-                    log("dash disconnected from phone server")
+                    log("dash disconnected from phone server (status-8 = link timeout)")
                     if (_state.value.link == LinkStatus.CONNECTED) setLink(LinkStatus.OFF, null)
+                    reArmBeacon()
                 }
             },
             onCommand = { cmd, _ -> handleCommand(cmd) },
@@ -378,6 +386,7 @@ class VehicleLinkController(private val context: Context) {
                     VehicleGattClientManager.ClientState.DISCONNECTED -> {
                         unregisterCallFeed()
                         keepaliveJob?.cancel(); keepaliveJob = null
+                        mediaPollJob?.cancel(); mediaPollJob = null
                         if (_state.value.link == LinkStatus.CONNECTED) {
                             setLink(LinkStatus.OFF, null)
                             if (_state.value.enabled) { log("restarting scan…"); startInternal(autoReconnect = true) }
@@ -397,14 +406,14 @@ class VehicleLinkController(private val context: Context) {
     private fun handleCommand(cmd: Int) {
         val label = when (cmd) {
             BleVehicleProfile.CMD_STOP_NAVIGATION -> "STOP_NAVIGATION"
-            BleVehicleProfile.CMD_MEDIA_PREVIOUS -> "MEDIA_PREVIOUS"
-            BleVehicleProfile.CMD_MEDIA_TOGGLE -> "MEDIA_TOGGLE"
-            BleVehicleProfile.CMD_MEDIA_NEXT -> "MEDIA_NEXT"
-            BleVehicleProfile.CMD_VOLUME_UP -> "VOLUME_UP"
-            BleVehicleProfile.CMD_VOLUME_DOWN -> "VOLUME_DOWN"
-            BleVehicleProfile.CMD_CALL_ACCEPT -> "CALL_ACCEPT"
-            BleVehicleProfile.CMD_CALL_REJECT -> "CALL_REJECT"
-            BleVehicleProfile.CMD_CALL_REJECT_WITH_MESSAGE -> "CALL_REJECT_WITH_SMS"
+            BleVehicleProfile.CMD_MEDIA_PREVIOUS -> { MediaBridge.sendCommand(context, cmd); "MEDIA_PREVIOUS" }
+            BleVehicleProfile.CMD_MEDIA_TOGGLE -> { MediaBridge.sendCommand(context, cmd); "MEDIA_TOGGLE" }
+            BleVehicleProfile.CMD_MEDIA_NEXT -> { MediaBridge.sendCommand(context, cmd); "MEDIA_NEXT" }
+            BleVehicleProfile.CMD_VOLUME_UP -> { MediaBridge.sendCommand(context, cmd); "VOLUME_UP" }
+            BleVehicleProfile.CMD_VOLUME_DOWN -> { MediaBridge.sendCommand(context, cmd); "VOLUME_DOWN" }
+            BleVehicleProfile.CMD_CALL_ACCEPT -> { answerCallFromDash(); "CALL_ACCEPT" }
+            BleVehicleProfile.CMD_CALL_REJECT -> { rejectCallFromDash(); "CALL_REJECT" }
+            BleVehicleProfile.CMD_CALL_REJECT_WITH_MESSAGE -> { rejectCallFromDash(); "CALL_REJECT_WITH_SMS" }
             BleVehicleProfile.CMD_UNPAIR -> {
                 prefs.edit().remove(BleVehicleProfile.PREF_LAST_CONNECTED).apply()
                 restart(); "UNPAIR"
@@ -428,6 +437,10 @@ class VehicleLinkController(private val context: Context) {
     /** Manual/demo pushes while testing against a dash or a second phone. */
     fun sendCall(name: String, ringing: Boolean) =
         pushBoth(BleVehicleProfile.PAYLOAD_PHONE_CALL, VehiclePayloadCodec.phoneCall(name, if (ringing) 1 else 0, false), priority = true)
+
+    fun sendMedia(track: String, artist: String, playing: Boolean, elapsedSec: Int, trackTimeSec: Int) =
+        pushBoth(BleVehicleProfile.PAYLOAD_MEDIA,
+            VehiclePayloadCodec.media(track, artist, if (playing) "playing" else "paused", elapsedSec, trackTimeSec))
 
     fun sendMedia(track: String, artist: String) =
         pushBoth(BleVehicleProfile.PAYLOAD_MEDIA, VehiclePayloadCodec.media(track, artist, "playing", 0, 0))
@@ -461,6 +474,43 @@ class VehicleLinkController(private val context: Context) {
         log("WhatsApp call ended")
         pushBoth(BleVehicleProfile.PAYLOAD_PHONE_CALL,
             VehiclePayloadCodec.phoneCall("", 0, true), priority = true)
+    }
+
+    // ------------------------------------------------ call control from the dash
+
+    /** Dash button: answer the live call (TelecomManager, or WA notification action). */
+    private fun answerCallFromDash() {
+        // WhatsApp call first: fire the notification's own Answer action.
+        WhatsAppNotificationListener.waCallActions?.let { actions ->
+            actions.firstOrNull { a -> a.title?.toString()?.lowercase()?.let { it.contains("answer") || it.contains("accept") } == true }
+                ?.let { action -> runCatching { action.actionIntent?.send() }; log("WhatsApp call answered from dash"); return }
+        }
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+            val telecom = context.getSystemService(Context.TELECOM_SERVICE) as? android.telecom.TelecomManager
+            if (telecom != null && ContextCompat.checkSelfPermission(context, android.Manifest.permission.ANSWER_PHONE_CALLS) == PackageManager.PERMISSION_GRANTED) {
+                runCatching { telecom.acceptRingingCall() }
+                log("call answered from dash")
+                return
+            }
+        }
+        log("cannot answer: no ANSWER_PHONE_CALLS permission")
+    }
+
+    /** Dash button: reject/hang up (TelecomManager.endCall, or WA Decline action). */
+    private fun rejectCallFromDash() {
+        WhatsAppNotificationListener.waCallActions?.let { actions ->
+            actions.firstOrNull { a -> a.title?.toString()?.lowercase()?.let { it.contains("decline") || it.contains("reject") || it.contains("hang") } == true }
+                ?.let { action -> runCatching { action.actionIntent?.send() }; log("WhatsApp call declined from dash"); return }
+        }
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+            val telecom = context.getSystemService(Context.TELECOM_SERVICE) as? android.telecom.TelecomManager
+            if (telecom != null && ContextCompat.checkSelfPermission(context, android.Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED) {
+                val ended = runCatching { telecom.endCall() }.getOrDefault(false)
+                log(if (ended) "call ended from dash" else "endCall returned false")
+                return
+            }
+        }
+        log("cannot end call: READ_PHONE_STATE missing")
     }
 
     // ------------------------------------------------ shared destination (map share -> dash)
@@ -571,6 +621,32 @@ class VehicleLinkController(private val context: Context) {
                 delay(30_000)
                 uptime += 30
                 pushBoth(BleVehicleProfile.PAYLOAD_VC_UPTIME, VehiclePayloadCodec.vcUptime(uptime))
+            }
+        }
+        // Media polling: pushes now-playing for ANY player with a MediaSession,
+        // even ones that post no MediaStyle notification (e.g. Bitchord).
+        mediaPollJob?.cancel()
+        mediaPollJob = scope.launch {
+            while (isActive) {
+                delay(5_000)
+                runCatching { MediaBridge.pollAndPush(context) }
+            }
+        }
+    }
+
+    /**
+     * Legacy connectable advertising stops automatically once the dash connects;
+     * when it later disconnects the beacon is gone and the dash can never find the
+     * phone again. Re-arm it (and use the keepalive loop as a watchdog).
+     */
+    private fun reArmBeacon() {
+        val adv = advertiser ?: return
+        if (_state.value.link == LinkStatus.CONNECTED) return
+        scope.launch {
+            delay(2_000)
+            if (_state.value.link != LinkStatus.CONNECTED) {
+                runCatching { VehicleBeaconAdvertiser.startEncryptedToken(adv, _state.value.token) }
+                log("beacon re-armed after disconnect")
             }
         }
     }

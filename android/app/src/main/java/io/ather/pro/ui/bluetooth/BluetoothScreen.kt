@@ -478,6 +478,30 @@ private fun VehicleLinkCard(controller: VehicleLinkController) {
                 Text("WhatsApp forwarding active", style = MaterialTheme.typography.labelMedium)
             }
 
+            // Doze kills BLE on many phones until the screen wakes — the real app
+            // requests battery-optimization exemption for exactly this reason.
+            val pm = ctx.getSystemService(android.content.Context.POWER_SERVICE) as? android.os.PowerManager
+            val batteryExempt = remember { mutableStateOf(pm?.isIgnoringBatteryOptimizations(ctx.packageName) == true) }
+            DisposableEffect(lifecycleOwner) {
+                val batteryObs = androidx.lifecycle.LifecycleEventObserver { _, event ->
+                    if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                        batteryExempt.value = pm?.isIgnoringBatteryOptimizations(ctx.packageName) == true
+                    }
+                }
+                lifecycleOwner.lifecycle.addObserver(batteryObs)
+                onDispose { lifecycleOwner.lifecycle.removeObserver(batteryObs) }
+            }
+            if (!batteryExempt.value) {
+                TextButton(onClick = {
+                    runCatching {
+                        ctx.startActivity(android.content.Intent(
+                            android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                            android.net.Uri.parse("package:" + ctx.packageName)
+                        ))
+                    }
+                }) { Text("Disable battery optimization — keep the dash connected") }
+            }
+
             if (link.logs.isNotEmpty()) {
                 Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = MaterialTheme.shapes.small) {
                     Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {

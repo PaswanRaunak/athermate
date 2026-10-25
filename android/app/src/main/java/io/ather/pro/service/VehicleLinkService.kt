@@ -27,13 +27,28 @@ class VehicleLinkService : Service() {
 
     private val binder = LocalBinder()
     private val controller: VehicleLinkController by lazy { appContainer.vehicleLink }
+    private var wakeLock: android.os.PowerManager.WakeLock? = null
 
     override fun onBind(intent: Intent?): IBinder = binder
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForeground(NOTIFICATION_ID, buildNotification("Vehicle link active"))
+        // The real app holds a wake lock (WAKE_LOCK in its manifest): without it
+        // many phones doze BLE while the screen is off and the dash cannot
+        // reconnect until the user wakes the phone.
+        wakeLock?.release()
+        wakeLock = (getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager)
+            ?.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "athermate:vehicleLink")?.apply {
+                setReferenceCounted(false)
+                acquire()
+            }
         controller.onServiceStarted()
         return START_STICKY
+    }
+
+    override fun onDestroy() {
+        wakeLock?.release(); wakeLock = null
+        super.onDestroy()
     }
 
     fun update(text: String) {

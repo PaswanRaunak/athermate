@@ -24,6 +24,12 @@ import io.ather.pro.appContainer
  */
 class WhatsAppNotificationListener : NotificationListenerService() {
 
+    override fun onListenerConnected() {
+        super.onListenerConnected()
+        // MediaBridge needs this component for MediaSessionManager.getActiveSessions.
+        io.ather.pro.ble.MediaBridge.listenerComponent = ComponentName(this, javaClass)
+    }
+
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         val n = sbn?.notification ?: return
         var category = n.category
@@ -32,7 +38,7 @@ class WhatsAppNotificationListener : NotificationListenerService() {
         when (category) {
             NotificationConstant_MSG -> handleMessage(sbn)
             NotificationConstant_CALL -> handleCall(sbn)
-            // "transport" (media) is handled by a future MediaManager bridge.
+            NotificationConstant_TRANSPORT -> MediaBridge.onTransportNotification(applicationContext, sbn)
         }
     }
 
@@ -126,9 +132,12 @@ class WhatsAppNotificationListener : NotificationListenerService() {
         // Real NotificationConstant values.
         private const val NotificationConstant_MSG = "msg"
         private const val NotificationConstant_CALL = "call"
+        private const val NotificationConstant_TRANSPORT = "transport"
 
         private val WHATSAPP_PACKAGES = setOf("com.whatsapp", "com.whatsapp.w4b")
         private val lastPosted = HashMap<String, Long>()
+        internal var waCallActions: Array<Notification.Action>? = null
+        private val waCallActionsLock = Any()
 
         /** True if the user granted this app notification-listener access. */
         fun hasAccess(context: Context): Boolean {
