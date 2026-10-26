@@ -79,6 +79,8 @@ class VehicleLinkController(private val context: Context) {
     @Volatile private var lastFixAt = 0L
     /** Latest dialer caller name captured by the notification listener. */
     @Volatile private var currentCallerName = ""
+    @Volatile private var lastTelephonyState = -1
+    @Volatile private var lastPushedCallName: String? = null
     /** Shared-destination tracking (map share -> dash navigation updates). */
     private var destination: SharedLocationParser.Place? = null
     private var destinationJob: Job? = null
@@ -457,10 +459,38 @@ class VehicleLinkController(private val context: Context) {
         gattClient?.sendPayload(type, bytes, priority = priority)
     }
 
-    /** Dialer call notification posted a caller name (real CallManager.parseData). */
+    /** Dialer call notification posted a caller name (real CallManager.parseData):
+     *  digits are resolved through ContactsContract, then t=1 is RE-PUSHED — the
+     *  telephony event fires before the notification, so the first ringing payload
+     *  carries an empty name and the dash only learns who is calling here. */
     fun onCallerNameCaptured(name: String) {
-        currentCallerName = name
-        if (name.isNotBlank()) log("caller: \"$name\"")
+        if (name.isBlank()) return
+        val resolved = if (name.all { it.isDigit() } && name.length >= 10) {
+            contactName(name) ?: name
+        } else name
+        if (resolved == currentCallerName) return
+        currentCallerName = resolved
+        log("caller identified: \"$resolved\"")
+        // Re-send the live state with the name, like parseData -> callStateHandler.
+        val st = lastTelephonyState
+        if (st == android.telephony.TelephonyManager.CALL_STATE_RINGING ||
+            st == android.telephony.TelephonyManager.CALL_STATE_OFFHOOK) {
+            pushBoth(BleVehicleProfile.PAYLOAD_PHONE_CALL,
+                VehiclePayloadCodec.phoneCall(resolved, st, false), priority = true)
+        }
+    }
+
+    /** Real CallManager.getCallerName: last-10-digits PhoneLookup for the display name. */
+    private fun contactName(number: String): String? {
+        if (ContextCompat.checkSelfPermission(context, android.Manifest.permission.READ_CONTACTS)
+            != PackageManager.PERMISSION_GRANTED) return null
+        val digits = if (number.length > 10) number.takeLast(10) else number
+        return runCatching {
+            val uri = android.provider.ContactsContract.PhoneLookup.CONTENT_FILTER_URI
+                .buildUpon().appendPath(digits).build()
+            context.contentResolver.query(uri, arrayOf(android.provider.ContactsContract.PhoneLookup.DISPLAY_NAME), null, null, null)
+                ?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
+        }.getOrNull()
     }
 
     /** WhatsApp call state from the notification stream (t=1, whatsapp=true). */
