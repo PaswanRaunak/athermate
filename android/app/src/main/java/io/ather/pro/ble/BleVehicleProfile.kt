@@ -68,14 +68,33 @@ object BleVehicleProfile {
     const val CMD_KEY_SWITCH_ON = 17       // ignition on — phone starts streaming state
     const val CMD_KEY_SWITCH_OFF = 18         // ignition off — phone clears pending payloads
 
-    // ---- TBT maneuver codes ------------------------------------------------------------
+    // ---- TBT maneuver codes (complete set, decompiled BLEConstants.TBT_* 0-25) ---------
     const val TBT_ERROR = 0
+    const val TBT_LOCATION_STARTED = 1
     const val TBT_DEST_REACHED = 2
+    const val TBT_IND_REROUTE = 3
+    const val TBT_IND_FERRY = 4
+    const val TBT_IND_TRAIN = 5
+    const val TBT_IND_ROUNDABOUT = 6
+    const val TBT_IND_EXIT = 7
+    const val TBT_EXIT_NUMBER = 8
+    const val TBT_CONTINUE_STRAIGHT = 9
     const val TBT_TURN_LEFT = 10
     const val TBT_TURN_RIGHT = 11
+    const val TBT_ROUNDABOUT_STRAIGHT = 12
+    const val TBT_ROUNDABOUT_LEFT = 13
+    const val TBT_ROUNDABOUT_RIGHT = 14
     const val TBT_UTURN_LEFT = 15
-    const val TBT_ROUNDABOUT = 12
-    const val TBT_CONTINUE_STRAIGHT = 9
+    const val TBT_UTURN_RIGHT = 16
+    const val TBT_SLIGHT_LEFT = 17
+    const val TBT_SLIGHT_RIGHT = 18
+    const val TBT_SHARP_LEFT = 19
+    const val TBT_SHARP_RIGHT = 20
+    const val TBT_RAMP_LEFT = 21
+    const val TBT_RAMP_RIGHT = 22
+    const val TBT_FORK_LEFT = 23
+    const val TBT_FORK_RIGHT = 24
+    const val TBT_MERGE = 25
 
     // ---- Pairing -------------------------------------------------------------------
     /** Pairing timeout (createBond -> BONDED must complete within this window). */
@@ -129,4 +148,9 @@ object BleVehicleProfile {
     const val PREF_TOKEN = "qrCodeToken"
     const val PREF_LAST_CONNECTED = "LastConnectedDeviceAddress"
     const val PREF_LINK_ENABLED = "vehicle_link_enabled"
+
+    // ---- Dash call-reject auto-SMS (original: endCallAndSendMessage) ----------------
+    const val PREF_SMS_ON_REJECT = "sms_on_call_reject"
+    const val PREF_SMS_TEMPLATE = "sms_reject_template"
+    const val DEFAULT_SMS_TEMPLATE = "I'm riding. Will call you back. - Sent from AtherMate"
 }

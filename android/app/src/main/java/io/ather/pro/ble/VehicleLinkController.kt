@@ -77,6 +77,11 @@ class VehicleLinkController(private val context: Context) {
     @Volatile private var lastFixLat = 0.0
     @Volatile private var lastFixLng = 0.0
     @Volatile private var lastFixAt = 0L
+    private var route: TbtRouter.Route? = null
+    private var routeStep = 0
+    private var offRouteCount = 0
+    @Volatile private var lastRouteAt = 0L
+    @Volatile private var currentPhoneNumber = ""
     /** Latest dialer caller name captured by the notification listener. */
     @Volatile private var currentCallerName = ""
     @Volatile private var lastTelephonyState = -1
@@ -415,7 +420,7 @@ class VehicleLinkController(private val context: Context) {
             BleVehicleProfile.CMD_VOLUME_DOWN -> { MediaBridge.sendCommand(context, cmd); "VOLUME_DOWN" }
             BleVehicleProfile.CMD_CALL_ACCEPT -> { answerCallFromDash(); "CALL_ACCEPT" }
             BleVehicleProfile.CMD_CALL_REJECT -> { rejectCallFromDash(); "CALL_REJECT" }
-            BleVehicleProfile.CMD_CALL_REJECT_WITH_MESSAGE -> { rejectCallFromDash(); "CALL_REJECT_WITH_SMS" }
+            BleVehicleProfile.CMD_CALL_REJECT_WITH_MESSAGE -> { rejectCallFromDash(); sendRejectSms(); "CALL_REJECT_WITH_SMS" }
             BleVehicleProfile.CMD_UNPAIR -> {
                 prefs.edit().remove(BleVehicleProfile.PREF_LAST_CONNECTED).apply()
                 restart(); "UNPAIR"
@@ -470,6 +475,7 @@ class VehicleLinkController(private val context: Context) {
         } else name
         if (resolved == currentCallerName) return
         currentCallerName = resolved
+        if (name.all { it.isDigit() }) currentPhoneNumber = name
         log("caller identified: \"$resolved\"")
         // Re-send the live state with the name, like parseData -> callStateHandler.
         val st = lastTelephonyState
@@ -543,22 +549,49 @@ class VehicleLinkController(private val context: Context) {
         log("cannot end call: READ_PHONE_STATE missing")
     }
 
+    /** Byte 8: original endCallAndSendMessage — reject plus an auto-SMS to the
+     *  incoming number when the user enabled it (real app sends to phoneNumber). */
+    private fun sendRejectSms() {
+        val prefs = context.getSharedPreferences(BleVehicleProfile.PREFS_FILE, Context.MODE_PRIVATE)
+        if (!prefs.getBoolean(BleVehicleProfile.PREF_SMS_ON_REJECT, false)) return
+        val number = currentPhoneNumber
+        if (number.isBlank()) { log("auto-SMS skipped: incoming number unknown"); return }
+        if (ContextCompat.checkSelfPermission(context, android.Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED) {
+            log("auto-SMS skipped: SEND_SMS not granted")
+            return
+        }
+        val text = prefs.getString(BleVehicleProfile.PREF_SMS_TEMPLATE, BleVehicleProfile.DEFAULT_SMS_TEMPLATE)
+            ?: BleVehicleProfile.DEFAULT_SMS_TEMPLATE
+        runCatching {
+            val sm = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+                context.getSystemService(android.telephony.SmsManager::class.java)
+            else @Suppress("DEPRECATION") android.telephony.SmsManager.getDefault()
+            sm?.sendTextMessage(number, null, text, null, null)
+            log("auto-SMS sent to $number")
+        }.onFailure { log("auto-SMS failed: ${it.message}") }
+    }
+
     // ------------------------------------------------ shared destination (map share -> dash)
 
     /** A location shared from Google Maps (ACTION_SEND text share or geo:) — toast the
-     *  dash, then stream live straight-line distance/bearing updates as t=6. */
+     *  dash, then stream REAL turn-by-turn maneuvers (OSRM route) as t=6, falling
+     *  back to straight-line guidance when no route is available. */
     fun setDestination(place: SharedLocationParser.Place) {
         destination = place
         destinationJob?.cancel()
+        route = null
+        routeStep = 0
         log("destination set: $place")
         serverSendPayload(BleVehicleProfile.PAYLOAD_TOAST,
             VehiclePayloadCodec.toast("Navigating to " + (place.label ?: "shared point")))
-        updateDestination(place.lat, place.lng, 0.0, 0.0, false)
+        pushBoth(BleVehicleProfile.PAYLOAD_TBT, VehiclePayloadCodec.tbt(
+            BleVehicleProfile.TBT_LOCATION_STARTED, "To " + (place.label ?: "destination"), 0))
         startDestinationUpdates()
     }
 
     fun clearDestination() {
         destination = null
+        route = null
         destinationJob?.cancel(); destinationJob = null
         log("destination cleared")
     }
@@ -569,51 +602,83 @@ class VehicleLinkController(private val context: Context) {
         val fine = ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
         val coarse = ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
         if (!fine && !coarse) {
-            log("location permission not granted — destination distance updates off")
+            log("location permission not granted — destination updates off")
             return
         }
         destinationJob = scope.launch {
             val listener = LocationListener { loc ->
                 lastFixLat = loc.latitude; lastFixLng = loc.longitude
                 lastFixAt = System.currentTimeMillis()
+                onRidingFix()
             }
-            runCatching { lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 8_000L, 25f, listener, context.mainLooper) }
+            runCatching { lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 5_000L, 15f, listener, context.mainLooper) }
             runCatching { lm.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 20_000L, 50f, listener, context.mainLooper) }
             try {
-                var lastSent = 0L
-                while (isActive && destination != null) {
-                    val dest = destination ?: break
-                    if (lastFixAt > 0 && System.currentTimeMillis() - lastSent > 8_000) {
-                        lastSent = System.currentTimeMillis()
-                        updateDestination(dest.lat, dest.lng, lastFixLat, lastFixLng, true)
-                    }
-                    delay(3_000)
-                }
+                while (isActive && destination != null) delay(2_000)
             } finally {
                 runCatching { lm.removeUpdates(listener) }
             }
         }
     }
 
-    private fun updateDestination(destLat: Double, destLng: Double, fromLat: Double, fromLng: Double, hasFix: Boolean) {
+    /** Called on every GPS fix: fetch/advance the route and push the next maneuver. */
+    private fun onRidingFix() {
         val dest = destination ?: return
-        if (!hasFix) {
-            pushBoth(BleVehicleProfile.PAYLOAD_TBT, VehiclePayloadCodec.tbt(
-                BleVehicleProfile.TBT_CONTINUE_STRAIGHT,
-                "To " + (dest.label ?: "destination"), 0))
-            return
-        }
-        val dist = haversineMeters(fromLat, fromLng, destLat, destLng)
-        val bearing = bearingDegrees(fromLat, fromLng, destLat, destLng)
-        if (dist < 40) {
+        if (System.currentTimeMillis() - lastFixAt > 20_000) return // stale fix
+        val destDist = haversineMeters(lastFixLat, lastFixLng, dest.lat, dest.lng)
+        if (destDist < 40) {
             serverSendPayload(BleVehicleProfile.PAYLOAD_TOAST,
                 VehiclePayloadCodec.toast("Arrived: " + (dest.label ?: "destination")))
             pushBoth(BleVehicleProfile.PAYLOAD_TBT,
                 VehiclePayloadCodec.tbt(BleVehicleProfile.TBT_DEST_REACHED, "Destination", 0))
-            destination = null; destinationJob?.cancel()
+            destination = null; route = null
+            destinationJob?.cancel()
             log("destination reached")
             return
         }
+        scope.launch {
+            val needFetch = route == null ||
+                System.currentTimeMillis() - lastRouteAt > 5 * 60_000 || offRouteCount >= 2
+            if (needFetch) {
+                val r = TbtRouter.fetch(lastFixLat, lastFixLng, dest.lat, dest.lng)
+                if (r != null) {
+                    if (route != null) {
+                        pushBoth(BleVehicleProfile.PAYLOAD_TBT, VehiclePayloadCodec.tbt(
+                            BleVehicleProfile.TBT_IND_REROUTE, "Re-routing", 0))
+                    }
+                    route = r; routeStep = 0; offRouteCount = 0
+                    lastRouteAt = System.currentTimeMillis()
+                    log("route: ${r.steps.size} steps, ${formatDistance(r.totalMeters)} total")
+                } else {
+                    log("route fetch failed — straight-line guidance")
+                }
+            }
+            val r = route
+            if (r == null || r.steps.isEmpty()) {
+                updateFallback(dest)
+                return@launch
+            }
+            if (routeStep >= r.steps.size) routeStep = r.steps.size - 1
+            val step = r.steps[routeStep]
+            val dToManeuver = haversineMeters(lastFixLat, lastFixLng, step.lat, step.lng)
+            // Off-route heuristic: far past the maneuver point for consecutive fixes.
+            if (dToManeuver > maxOf(200.0, step.distanceMeters * 2.0)) offRouteCount++ else offRouteCount = 0
+            if (dToManeuver < 40 && routeStep < r.steps.size - 1) {
+                routeStep++
+                val next = r.steps[routeStep]
+                pushBoth(BleVehicleProfile.PAYLOAD_TBT, VehiclePayloadCodec.tbt(
+                    next.maneuverId, next.instruction, next.distanceMeters.toInt()))
+                return@launch
+            }
+            pushBoth(BleVehicleProfile.PAYLOAD_TBT, VehiclePayloadCodec.tbt(
+                step.maneuverId, step.instruction, dToManeuver.toInt()))
+        }
+    }
+
+    /** Straight-line guidance when no route is available (offline, OSRM down). */
+    private fun updateFallback(dest: SharedLocationParser.Place) {
+        val dist = haversineMeters(lastFixLat, lastFixLng, dest.lat, dest.lng)
+        val bearing = bearingDegrees(lastFixLat, lastFixLng, dest.lat, dest.lng)
         pushBoth(BleVehicleProfile.PAYLOAD_TBT, VehiclePayloadCodec.tbt(
             BleVehicleProfile.TBT_CONTINUE_STRAIGHT,
             (dest.label ?: "Destination") + " · " + formatDistance(dist) + " " + compass8(bearing),

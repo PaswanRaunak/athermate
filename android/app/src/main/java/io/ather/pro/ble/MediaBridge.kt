@@ -32,6 +32,7 @@ object MediaBridge {
     private var lastActions: Array<Notification.Action>? = null
     private var lastTrack: String = ""
     private var lastState: Int = -1
+    private var lastPushAt: Long = 0L
 
     /** Call for every "transport"-category notification. */
     fun onTransportNotification(context: Context, sbn: StatusBarNotification) {
@@ -80,9 +81,13 @@ object MediaBridge {
             ((playback?.position ?: 0L) / 1000L).toInt()
         }
 
-        // Dedup: only push on track or play-state change.
-        if (track == lastTrack && state == lastState) return
+        // Dedup: push on track/play-state change, or refresh the elapsed time
+        // every 20 s so the dash countdown ticks (original re-sends position too).
+        val now = System.currentTimeMillis()
+        val changed = track != lastTrack || state != lastState
+        if (!changed && now - lastPushAt < 20_000) return
         lastTrack = track; lastState = state
+        lastPushAt = now
 
         context.appContainer.vehicleLink.sendMedia(track, subtitle, state == 1, posSec, durationSec)
     }
@@ -170,8 +175,11 @@ object MediaBridge {
             ((playback.position + (SystemClock.elapsedRealtime() - playback.lastPositionUpdateTime) * speed) / 1000.0).toInt()
         } else ((playback?.position ?: 0L) / 1000L).toInt()
 
-        if (track == lastTrack && playing == (lastState == 1)) return
+        val now = System.currentTimeMillis()
+        val changed = track != lastTrack || playing != (lastState == 1)
+        if (!changed && now - lastPushAt < 20_000) return
         lastTrack = track; lastState = if (playing) 1 else 0
+        lastPushAt = now
         lastController = controller
         context.appContainer.vehicleLink.sendMedia(track, subtitle, playing, posSec, durationSec)
     }

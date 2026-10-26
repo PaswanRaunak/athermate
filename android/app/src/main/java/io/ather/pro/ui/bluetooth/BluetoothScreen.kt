@@ -502,6 +502,42 @@ private fun VehicleLinkCard(controller: VehicleLinkController) {
                 }) { Text("Disable battery optimization — keep the dash connected") }
             }
 
+            // Auto-SMS when a call is rejected from the dash (original: endCallAndSendMessage).
+            val smsPrefs = remember {
+                ctx.getSharedPreferences(BleVehicleProfile.PREFS_FILE, android.content.Context.MODE_PRIVATE)
+            }
+            var smsOn by remember {
+                mutableStateOf(smsPrefs.getBoolean(BleVehicleProfile.PREF_SMS_ON_REJECT, false))
+            }
+            var smsText by remember {
+                mutableStateOf(smsPrefs.getString(BleVehicleProfile.PREF_SMS_TEMPLATE, BleVehicleProfile.DEFAULT_SMS_TEMPLATE)
+                    ?: BleVehicleProfile.DEFAULT_SMS_TEMPLATE)
+            }
+            val smsPermLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+                smsPrefs.edit().putBoolean(BleVehicleProfile.PREF_SMS_ON_REJECT, granted).apply()
+                smsOn = granted
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Switch(checked = smsOn, onCheckedChange = { want ->
+                    val granted = ContextCompat.checkSelfPermission(ctx, Manifest.permission.SEND_SMS) == PackageManager.PERMISSION_GRANTED
+                    if (want && !granted) smsPermLauncher.launch(Manifest.permission.SEND_SMS)
+                    else { smsPrefs.edit().putBoolean(BleVehicleProfile.PREF_SMS_ON_REJECT, want).apply(); smsOn = want }
+                })
+                Text("Auto-SMS when rejecting a call from the dash", style = MaterialTheme.typography.bodySmall)
+            }
+            if (smsOn) {
+                OutlinedTextField(
+                    value = smsText,
+                    onValueChange = {
+                        smsText = it
+                        smsPrefs.edit().putString(BleVehicleProfile.PREF_SMS_TEMPLATE, it).apply()
+                    },
+                    label = { Text("Message sent to the caller") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = false
+                )
+            }
+
             if (link.logs.isNotEmpty()) {
                 Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = MaterialTheme.shapes.small) {
                     Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
