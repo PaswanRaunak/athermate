@@ -29,6 +29,7 @@ import io.ather.pro.domain.model.ChargingSessionRecord
 import io.ather.pro.ui.components.number
 import java.time.Instant
 import java.time.YearMonth
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -94,7 +95,9 @@ fun ChargingHistoryCard(
 
                 val visible = if (expanded) sessions else sessions.take(COMPACT_SESSION_COUNT)
                 val groups = remember(visible) {
-                    visible.groupBy { YearMonth.from(Instant.ofEpochMilli(it.startedAtMs)) }
+                    // YearMonth.from(Instant) throws (Unsupported field: Year) — an
+                    // Instant must be zoned first. This crashed the history card.
+                    visible.groupBy { YearMonth.from(Instant.ofEpochMilli(it.startedAtMs).atZone(ZoneId.systemDefault())) }
                 }
                 groups.forEach { (month, list) ->
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
