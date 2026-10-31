@@ -108,7 +108,9 @@ fun ChargingHistoryCard(
                                 fontWeight = FontWeight.SemiBold)
                             bucket?.let {
                                 Text("₹${number(it.costInr, 2)} · ${number(it.energyKWh, 1)} kWh",
-                                    style = MaterialTheme.typography.labelMedium, color = colors.onSurfaceVariant)
+                                    style = MaterialTheme.typography.labelMedium.merge(
+                                        io.ather.pro.ui.motion.TabularNumbers),
+                                    color = colors.onSurfaceVariant)
                             }
                         }
                         list.forEach { session -> SessionRow(session) }

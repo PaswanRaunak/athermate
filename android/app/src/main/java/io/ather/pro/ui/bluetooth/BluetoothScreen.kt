@@ -1,5 +1,10 @@
 package io.ather.pro.ui.bluetooth
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import android.Manifest
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -25,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -408,10 +414,40 @@ private fun VehicleLinkCard(controller: VehicleLinkController) {
                 })
             }
 
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                BleValue("Status", link.link.name.lowercase().replaceFirstChar { it.uppercase() })
-                BleValue("Vehicle", link.deviceName ?: link.deviceAddress ?: "—")
-                BleValue("Ignition", if (link.ignitionOn) "On" else "—")
+            // Status: colored dot + label; vehicle name on its own line so long
+            // names never run into the status text.
+            val (dotColor, dotPulsing, statusLabel) = when (link.link) {
+                io.ather.pro.ble.VehicleLinkController.LinkStatus.CONNECTED ->
+                    Triple(Color(0xFF1DB584), false, "Connected")
+                io.ather.pro.ble.VehicleLinkController.LinkStatus.SCANNING,
+                io.ather.pro.ble.VehicleLinkController.LinkStatus.PAIRING,
+                io.ather.pro.ble.VehicleLinkController.LinkStatus.CONNECTING ->
+                    Triple(Color(0xFF26A69A), true, "Searching…")
+                io.ather.pro.ble.VehicleLinkController.LinkStatus.PROFILE_MISMATCH ->
+                    Triple(Color(0xFFE57373), false, "Wrong device")
+                io.ather.pro.ble.VehicleLinkController.LinkStatus.OFF ->
+                    Triple(MaterialTheme.colorScheme.onSurfaceVariant, false, "Off")
+            }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                io.ather.pro.ui.motion.StatusDot(color = dotColor, pulsing = dotPulsing)
+                Text(statusLabel, style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.weight(1f))
+                androidx.compose.animation.AnimatedVisibility(visible = link.ignitionOn) {
+                    Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.secondaryContainer) {
+                        Text("Ignition on", Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                            style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+            }
+            val vehicleLabel = link.deviceName ?: link.deviceAddress
+            AnimatedVisibility(
+                visible = vehicleLabel != null,
+                enter = fadeIn(io.ather.pro.ui.motion.Motion.standard()) + expandVertically(io.ather.pro.ui.motion.Motion.standard()),
+                exit = fadeOut(io.ather.pro.ui.motion.Motion.standard()) + shrinkVertically(io.ather.pro.ui.motion.Motion.standard())
+            ) {
+                Text(vehicleLabel ?: "", style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -443,17 +479,18 @@ private fun VehicleLinkCard(controller: VehicleLinkController) {
                 }) { Text("Use") }
             }
 
-            link.lastError?.let { err ->
-                Text(err, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+            SmoothSection(visible = link.lastError != null) {
+                Text(link.lastError.orEmpty(), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error)
             }
 
-            if (link.link == io.ather.pro.ble.VehicleLinkController.LinkStatus.CONNECTED) {
+            SmoothSection(visible = link.link == io.ather.pro.ble.VehicleLinkController.LinkStatus.CONNECTED) {
                 Text("Test pushes to the dash", style = MaterialTheme.typography.labelLarge)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilledTonalButton(onClick = { controller.sendCall("Mom", ringing = true) }) { Text("Incoming call") }
-                    FilledTonalButton(onClick = { controller.sendMedia("Kaleidoscope", "Ather FM") }) { Text("Now playing") }
-                    FilledTonalButton(onClick = { controller.sendTbt("Turn left onto MG Road", BleVehicleProfile.TBT_TURN_LEFT, 180) }) { Text("Navigation") }
-                    FilledTonalButton(onClick = { controller.sendWhatsapp("Mom", "Ride safe!") }) { Text("WhatsApp") }
+                    TonalAction("Incoming call") { controller.sendCall("Mom", ringing = true) }
+                    TonalAction("Now playing") { controller.sendMedia("Kaleidoscope", "Ather FM") }
+                    TonalAction("Navigation") { controller.sendTbt("Turn left onto MG Road", BleVehicleProfile.TBT_TURN_LEFT, 180) }
+                    TonalAction("WhatsApp") { controller.sendWhatsapp("Mom", "Ride safe!") }
                 }
             }
 
@@ -548,5 +585,30 @@ private fun VehicleLinkCard(controller: VehicleLinkController) {
                 }
             }
         }
+    }
+}
+
+/** Animated section wrapper: springs (no overshoot), fade + vertical expand. */
+@Composable
+private fun SmoothSection(visible: Boolean, content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(io.ather.pro.ui.motion.Motion.standard()) +
+            expandVertically(animationSpec = io.ather.pro.ui.motion.Motion.standard()),
+        exit = fadeOut(io.ather.pro.ui.motion.Motion.standard()) +
+            shrinkVertically(animationSpec = io.ather.pro.ui.motion.Motion.standard())
+    ) {
+        androidx.compose.foundation.layout.Column(verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
+            content()
+        }
+    }
+}
+
+/** FilledTonalButton with press-down scale feedback (Apple: respond on press). */
+@Composable
+private fun TonalAction(label: String, onClick: () -> Unit) {
+    val (source, scale) = io.ather.pro.ui.motion.rememberPressScale()
+    FilledTonalButton(onClick = onClick, interactionSource = source, modifier = scale) {
+        Text(label)
     }
 }

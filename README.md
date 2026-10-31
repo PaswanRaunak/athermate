@@ -50,11 +50,11 @@ The current app (account name pixelated in Settings):
 
 ## Download and update
 
-**[Download the latest release](https://github.com/PaswanRaunak/athermate/releases/latest)** · **[v1.3.1 release notes](https://github.com/PaswanRaunak/athermate/releases/tag/v1.3.1)**
+**[Download the latest release](https://github.com/PaswanRaunak/athermate/releases/latest)** · **[v1.4.0 release notes](https://github.com/PaswanRaunak/athermate/releases/tag/v1.4.0)**
 
-Requires Android 8.0 or newer. Download the `AtherMate-v1.3.1-release.apk` asset and install it. If you are coming from the original Athr+ app, install AtherMate as a new app first — it is a separate build with its own signing identity and does not install over Athr+. Android may ask you to allow installation from your browser or file manager.
+Requires Android 8.0 or newer. Download the `AtherMate-v1.4.0-release.apk` asset and install it. If you are coming from the original Athr+ app, install AtherMate as a new app first — it is a separate build with its own signing identity and does not install over Athr+. Android may ask you to allow installation from your browser or file manager.
 
-Version **1.3.1 (build 32)** is a signed, non-debuggable release with R8 code optimization and resource shrinking. Published stable releases appear in the app with release notes, a download button, and Android's installation confirmation; you can also use **Settings → App updates → Check now**. Checks run on opening the app at most once every six hours and approximately daily in the background; Android may delay background work. A source push alone does not trigger an app update. Downloaded APKs are checked for package, version, signing certificate, size, and checksum before installation.
+Version **1.4.0 (build 34)** is a signed, non-debuggable release with R8 code optimization and resource shrinking. Published stable releases appear in the app with release notes, a download button, and Android's installation confirmation; you can also use **Settings → App updates → Check now**. Checks run on opening the app at most once every six hours and approximately daily in the background; Android may delay background work. A source push alone does not trigger an app update. Downloaded APKs are checked for package, version, signing certificate, size, and checksum before installation.
 
 ## Support the project
 
