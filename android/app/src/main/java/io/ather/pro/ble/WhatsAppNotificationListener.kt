@@ -137,6 +137,9 @@ class WhatsAppNotificationListener : NotificationListenerService() {
         private val WHATSAPP_PACKAGES = setOf("com.whatsapp", "com.whatsapp.w4b")
         private val lastPosted = HashMap<String, Long>()
         internal var waCallActions: Array<Notification.Action>? = null
+        /** True only while a WhatsApp call notification is actually up — prevents
+         *  stale actions from hijacking normal-call answers. */
+        @Volatile internal var waCallActive: Boolean = false
         private val waCallActionsLock = Any()
 
         /** True if the user granted this app notification-listener access. */

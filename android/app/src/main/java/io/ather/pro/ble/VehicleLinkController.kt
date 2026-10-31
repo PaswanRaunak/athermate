@@ -514,22 +514,54 @@ class VehicleLinkController(private val context: Context) {
 
     // ------------------------------------------------ call control from the dash
 
-    /** Dash button: answer the live call (TelecomManager, or WA notification action). */
+    /** Dash button: answer the live call. Layers, in order:
+     *  1. WhatsApp call active -> fire the notification's own Answer action
+     *  2. TelecomManager.acceptRingingCall — the original CallManager.answerCall
+     *  3. HEADSETHOOK media-key press — some ROMs (ColorOS etc.) silently no-op
+     *     acceptRingingCall for non-default-dialer apps; the headset hook still
+     *     answers, so it is retried when the call is still ringing a moment later. */
     private fun answerCallFromDash() {
-        // WhatsApp call first: fire the notification's own Answer action.
-        WhatsAppNotificationListener.waCallActions?.let { actions ->
-            actions.firstOrNull { a -> a.title?.toString()?.lowercase()?.let { it.contains("answer") || it.contains("accept") } == true }
-                ?.let { action -> runCatching { action.actionIntent?.send() }; log("WhatsApp call answered from dash"); return }
-        }
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
-            val telecom = context.getSystemService(Context.TELECOM_SERVICE) as? android.telecom.TelecomManager
-            if (telecom != null && ContextCompat.checkSelfPermission(context, android.Manifest.permission.ANSWER_PHONE_CALLS) == PackageManager.PERMISSION_GRANTED) {
-                runCatching { telecom.acceptRingingCall() }
-                log("call answered from dash")
+        if (WhatsAppNotificationListener.waCallActive) {
+            val actions = WhatsAppNotificationListener.waCallActions
+            val answer = actions?.firstOrNull { a ->
+                val t = a.title?.toString()?.lowercase() ?: ""
+                t.contains("answer") || t.contains("accept") || t.contains("\u0909\u0924\u094d\u0924\u0930") || t.contains("\u091c\u0935\u093e\u092c")
+            }
+            if (answer != null) {
+                runCatching { answer.actionIntent?.send() }
+                log("WhatsApp call answered from dash")
                 return
             }
+            log("WhatsApp call active but no answer action — trying telecom")
         }
-        log("cannot answer: no ANSWER_PHONE_CALLS permission")
+        val telecom = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P)
+            context.getSystemService(Context.TELECOM_SERVICE) as? android.telecom.TelecomManager else null
+        val canAnswer = ContextCompat.checkSelfPermission(context, android.Manifest.permission.ANSWER_PHONE_CALLS) == PackageManager.PERMISSION_GRANTED
+        if (telecom != null && canAnswer) {
+            runCatching { telecom.acceptRingingCall() }
+            log("acceptRingingCall sent")
+            scope.launch {
+                delay(1_200)
+                if (lastTelephonyState == android.telephony.TelephonyManager.CALL_STATE_RINGING) {
+                    log("still ringing — trying headset-button answer")
+                    sendHeadsetHook()
+                }
+            }
+            return
+        }
+        log("no ANSWER_PHONE_CALLS — trying headset-button answer")
+        scope.launch { sendHeadsetHook() }
+    }
+
+    /** Media-key HEADSETHOOK press: Telecom answers a ringing call on the headset hook. */
+    private suspend fun sendHeadsetHook() {
+        runCatching {
+            val am = context.getSystemService(Context.AUDIO_SERVICE) as? android.media.AudioManager ?: return
+            am.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_HEADSETHOOK))
+            delay(90)
+            am.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, android.view.KeyEvent.KEYCODE_HEADSETHOOK))
+            log("headset-button answer dispatched")
+        }.onFailure { log("headset answer failed: ${it.message}") }
     }
 
     /** Dash button: reject/hang up (TelecomManager.endCall, or WA Decline action). */
