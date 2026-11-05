@@ -7,9 +7,9 @@
 <p align="center"><b>An independent companion app and home-screen widget for your Ather electric scooter.</b></p>
 
 > [!NOTE]
-> **Credits** — AtherMate is a fork of **[Athr+](https://github.com/karmugilen/athr-plus)**, created and open-sourced by **[@karmugilen](https://github.com/karmugilen)**. The original app, its architecture, documentation, and the entire v1.1.x line are the original author's work; this fork exists only because Athr+ was worth continuing. Please star and support the [upstream project](https://github.com/karmugilen/athr-plus) too.
+> **Lineage** — AtherMate is an independent project built on **[Athr+ v1.1.16](https://github.com/karmugilen/athr-plus)**, created and open-sourced by **[@karmugilen](https://github.com/karmugilen)**. The original app, its architecture, documentation, and the entire v1.1.x line are the original author's work — see [Lineage & credits](#lineage--credits) for exactly who built what. Please star and support the [original project](https://github.com/karmugilen/athr-plus) too.
 
-## What this fork adds
+## What AtherMate adds
 
 AtherMate continues where Athr+ left off, on top of the original v1.1.16:
 
@@ -21,6 +21,28 @@ AtherMate continues where Athr+ left off, on top of the original v1.1.16:
 - **Vehicle link (Ather BLE protocol):** pair with the scooter dash by scanning its QR code (or tapping its pairing link) and the dash connects to the phone over the reverse-engineered Ather BLE profile — the full five-service GATT server (call, media, WhatsApp, navigation, voice) with the genuine Ather beacon and token crypto. Once paired, real phone events reach the scooter: now-playing from any music app (title, artist, ticking elapsed time), incoming calls with caller names (resolved from your contacts), WhatsApp calls, and WhatsApp messages (with notification access); dash buttons answer/reject calls, control music playback, and — optionally — reject with an auto-sent SMS to the caller. Payloads sent while the dash is away are delivered when it reconnects; the phone re-advertises after every disconnect and holds a wake lock so the dash can always find it again. A **Vehicle link** Quick Settings tile shows the state and toggles the link from the shade.
 - **Turn-by-turn navigation on the dash:** share any place from Google Maps (or open a `geo:` link) with AtherMate and the dash shows real maneuvers — "Turn right onto MG Road", roundabout exits, ramps, forks — driven by an OSRM route, advancing with GPS, re-routing when you go off-route, and falling back to straight-line guidance offline. Ends with an arrival notice on the dash.
 - **QR pairing, maintenance reminders, notification progress, profile persistence, and a refreshed brand identity.**
+
+## Lineage & credits
+
+AtherMate is a standalone project, not a fork — but it stands on someone else's foundation, and that is credited here deliberately.
+
+**Built by [@karmugilen](https://github.com/karmugilen) — [Athr+](https://github.com/karmugilen/athr-plus) (the v1.1.x baseline):**
+
+- The entire app architecture: Kotlin/Compose structure, navigation, data layer, and build setup
+- Phone sign-in with country-aware OTP validation, and the Ather cloud API client
+- Live scooter monitoring (battery, location, odometer, ride modes) and the charge limiter
+- 24-hour battery history, Material 3 theming, the classic home-screen widget
+- Battery/scooter artwork, Rust-native math via JNI, Leaflet maps with trip history
+- The verified self-update system and the project documentation
+
+**Built in AtherMate ([@PaswanRaunak](https://github.com/PaswanRaunak)) on top of that baseline:**
+
+- Charging session history with monthly cost/energy totals, and the charging widget
+- Weekly/monthly ride insights and personalised range learning
+- The **reverse-engineered Ather dash Bluetooth link**: five-service GATT server, QR pairing with the genuine beacon/token protocol, calls with caller names and joystick answer/reject (including ROM-restricted accept paths), WhatsApp messages and calls, any-player now-playing with dash media/volume control, turn-by-turn navigation streamed to the dash, reject-with-SMS, and the Quick Settings tile
+- The fluid-interface redesign, new brand icon, and the v1.2.x–v1.4.x releases
+
+The full git history is preserved, so every commit keeps its original author — the original author's commits remain theirs, forever, in `git log`.
 
 ## Screenshots
 
@@ -61,7 +83,7 @@ Version **1.4.0 (build 34)** is a signed, non-debuggable release with R8 code op
 If the app is useful to you, consider supporting the people behind it.
 
 - **Original Athr+ author** ([@karmugilen](https://github.com/karmugilen)) — UPI: `karmugilrc-1@okaxis`. AtherMate would not exist without the original project.
-- **This fork** — the in-app **Settings → Support the project** screen sends contributions to the fork's maintainer.
+- **AtherMate maintainer** ([@PaswanRaunak](https://github.com/PaswanRaunak)) — the in-app **Settings → Support the project** screen sends contributions to AtherMate's maintainer.
 
 ## Why This Project Exists
 
@@ -88,7 +110,7 @@ Athr+ gave everyone full, unrestricted access to their own scooter—live batter
 - **Phone sign-in:** searchable country calling codes (India +91 by default), international number paste, country-aware validation, and SMS code resend with a countdown. OTP delivery for each country depends on the account provider.
 - **Smooth map interaction:** display-paced heading animation and a request for the fastest supported refresh rate up to 144 Hz while a map is open. Actual frame rate depends on the device, Android settings, and WebView.
 - **Maps and ride analytics:** Leaflet street maps, vehicle heading, local trip history, and available battery/efficiency information.
-- **Vehicle link over BLE:** dash pairing via QR, turn-by-turn navigation, calls with caller names and joystick accept/reject, WhatsApp messages and calls, now-playing with media/volume control from the dash, and a Quick Settings tile — see "What this fork adds" above for the full description.
+- **Vehicle link over BLE:** dash pairing via QR, turn-by-turn navigation, calls with caller names and joystick accept/reject, WhatsApp messages and calls, now-playing with media/volume control from the dash, and a Quick Settings tile — see "What AtherMate adds" above for the full description.
 - **Verified app updates:** public GitHub release checks without a GitHub login; downloaded APKs are checked for package, version, signing certificate, size, and available checksum before installation.
 
 ## Build
@@ -154,4 +176,4 @@ Keystores, local properties, APKs, and local API session files are excluded from
 >
 > This project is completely independent and is not affiliated with, authorized, maintained, sponsored, or endorsed by any vehicle manufacturer, automotive brand, or corporate entity. All trademarks, service marks, trade names, and product names are the property of their respective owners. The software is provided solely for personal interoperability, research, educational, and hobbyist purposes.
 >
-> AtherMate is a fork of [Athr+](https://github.com/karmugilen/athr-plus) by [@karmugilen](https://github.com/karmugilen); the original project's work is acknowledged with thanks.
+> AtherMate builds on [Athr+](https://github.com/karmugilen/athr-plus) by [@karmugilen](https://github.com/karmugilen); the original project's work is acknowledged with thanks and detailed in [Lineage & credits](#lineage--credits).
