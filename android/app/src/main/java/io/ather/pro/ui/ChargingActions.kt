@@ -147,14 +147,14 @@ private fun ChargingActions(
                     }
                 }
                 charging && view.canPause -> {
-                    Button(onClick = onPauseCharging, modifier = Modifier.fillMaxWidth()) {
+                    io.ather.pro.ui.motion.FilledActionButton(onClick = onPauseCharging, modifier = Modifier.fillMaxWidth()) {
                         Icon(Icons.Default.Pause, contentDescription = null, Modifier.size(16.dp))
                         Spacer(Modifier.width(6.dp))
                         Text("Pause charging")
                     }
                 }
                 plugged && view.canResume -> {
-                    Button(onClick = onResumeCharging, modifier = Modifier.fillMaxWidth()) {
+                    io.ather.pro.ui.motion.FilledActionButton(onClick = onResumeCharging, modifier = Modifier.fillMaxWidth()) {
                         Icon(Icons.Default.PlayArrow, contentDescription = null, Modifier.size(16.dp))
                         Spacer(Modifier.width(6.dp))
                         Text("Resume charging")
@@ -179,13 +179,13 @@ private fun ChargingActions(
                     Text(
                         view.command.message ?: "Request accepted — waiting for scooter telemetry confirmation…",
                         color = colors.tertiary, style = MaterialTheme.typography.labelSmall)
-                    TextButton(onClick = onRetryLatch) { Text("Allow another attempt") }
+                    io.ather.pro.ui.motion.TextActionButton(onClick = onRetryLatch) { Text("Allow another attempt") }
                 }
                 RemoteCommandPhase.ERROR -> {
                     Text(
                         view.command.message ?: "Request failed or timed out — you can retry.",
                         color = colors.error, style = MaterialTheme.typography.labelSmall)
-                    TextButton(onClick = onRetryLatch) { Text("Dismiss error") }
+                    io.ather.pro.ui.motion.TextActionButton(onClick = onRetryLatch) { Text("Dismiss error") }
                 }
                 RemoteCommandPhase.CONFIRMED -> Text(
                     view.command.message ?: "Scooter confirmed the charging change.",

@@ -121,6 +121,7 @@ class MainActivity : ComponentActivity() {
                                     onCountryChanged = authViewModel::onCountryChanged,
                                     onOtpChanged = authViewModel::onOtpChanged,
                                     onRequestOtp = authViewModel::requestOtp,
+                                    onSignInWithToken = authViewModel::signInWithToken,
                                     onVerifyOtp = authViewModel::verifyOtp,
                                     onSelectScooter = authViewModel::selectScooter,
                                     onRetryScooters = authViewModel::retryScooters,

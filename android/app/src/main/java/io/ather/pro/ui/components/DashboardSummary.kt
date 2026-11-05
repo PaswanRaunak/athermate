@@ -63,8 +63,10 @@ fun FreshnessLabel(state: ScooterDashboardState, modifier: Modifier = Modifier) 
         else -> "Waiting for scooter data · Tap refresh to retry"
     }
     Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-        Box(Modifier.size(7.dp).clip(CircleShape).background(
-            if (fresh) ChargingGlow else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)))
+        // Apple: pulse communicates "working" — steady dot means settled/live.
+        io.ather.pro.ui.motion.StatusDot(
+            color = if (fresh) ChargingGlow else MaterialTheme.colorScheme.onSurfaceVariant,
+            pulsing = !fresh && state.connection != ConnectionStatus.DISCONNECTED)
         Text(text, style = MaterialTheme.typography.bodySmall,
             color = if (fresh) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant)
     }

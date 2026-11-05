@@ -35,10 +35,10 @@ fun AtherDashboardScreen(
         item { EnergySummaryCard(dashboard, chargeLimit, accountName) }
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Button(onClick = onOpenCharging, modifier = Modifier.weight(1f)) {
+                io.ather.pro.ui.motion.FilledActionButton(onClick = onOpenCharging, modifier = Modifier.weight(1f)) {
                     Text(if (chargeLimit.enabled) "Limit ${chargeLimit.percent}%" else "Manage charging")
                 }
-                OutlinedButton(onClick = onOpenMap, modifier = Modifier.weight(1f)) { Text("Find scooter") }
+                io.ather.pro.ui.motion.OutlinedActionButton(onClick = onOpenMap, modifier = Modifier.weight(1f)) { Text("Find scooter") }
             }
         }
         item { SectionLabel("Ride modes") }
@@ -48,7 +48,7 @@ fun AtherDashboardScreen(
             petrolPricePerLitre = dashboard.settings.petrolPricePerLitre) }
         item { SectionLabel("Battery") }
         item { BatteryHistoryCard(dashboard = dashboard, chargeLimitPercent = chargeLimit.percent.takeIf { chargeLimit.enabled }) }
-        item { TextButton(onClick = { details = !details }, modifier = Modifier.fillMaxWidth()) {
+        item { io.ather.pro.ui.motion.TextActionButton(onClick = { details = !details }, modifier = Modifier.fillMaxWidth()) {
             Text(if (details) "Hide details" else "Battery health & vehicle details", fontWeight = FontWeight.SemiBold)
         } }
         if (details) {
@@ -59,7 +59,8 @@ fun AtherDashboardScreen(
                 Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
                     Row(Modifier.fillMaxWidth().padding(18.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                         Column { Text("Odometer", style = MaterialTheme.typography.labelMedium)
-                            Text("${number(dashboard.telemetry?.odoKm, 1)} km", style = MaterialTheme.typography.titleLarge) }
+                            Text("${number(dashboard.telemetry?.odoKm, 1)} km", style = MaterialTheme.typography.titleLarge
+                                .merge(io.ather.pro.ui.motion.TabularNumbers)) }
                         Column { Text("Fuel savings", style = MaterialTheme.typography.labelMedium)
                             Text("₹${number(dashboard.telemetry?.savingsInr)}", style = MaterialTheme.typography.titleLarge) }
                     }

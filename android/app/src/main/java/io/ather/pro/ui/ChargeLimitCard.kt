@@ -83,7 +83,7 @@ fun ChargeLimitCard(
                             style = MaterialTheme.typography.labelMedium, color = statusColor)
                     }
                 }
-                if (snapshot.enabled) TextButton(onClick = { onEnabledChange(false) }) { Text("Turn off") }
+                if (snapshot.enabled) io.ather.pro.ui.motion.TextActionButton(onClick = { onEnabledChange(false) }) { Text("Turn off") }
             }
 
             // hero: big target with current battery context

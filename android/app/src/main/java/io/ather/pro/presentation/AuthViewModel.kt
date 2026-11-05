@@ -92,7 +92,7 @@ class AuthViewModel(
                     onFailure = { error ->
                         state.copy(
                             isLoading = false,
-                            errorMessage = error.message ?: "Could not send OTP"
+                            errorMessage = explainAuthError(error.message ?: "Could not send OTP")
                         )
                     }
                 )
@@ -119,12 +119,39 @@ class AuthViewModel(
                     _ui.update {
                         it.copy(
                             isLoading = false,
-                            errorMessage = error.message ?: "OTP verification failed"
+                            errorMessage = explainAuthError(error.message)
                         )
                     }
                 }
             )
         }
+    }
+
+    /**
+     * Advanced sign-in: paste a cerberus session token captured from your own
+     * logged-in device. Ather now enforces Firebase App Check (Play Integrity)
+     * on fresh OTP logins, which third-party apps cannot satisfy — a pasted
+     * token from your own account is the working alternative.
+     */
+    fun signInWithToken(token: String) {
+        val trimmed = token.trim()
+        if (_ui.value.isLoading) return
+        if (trimmed.length < 40 || !trimmed.contains('.')) {
+            _ui.update { it.copy(errorMessage = "That does not look like a session token — paste the full JWT (three dot-separated parts)") }
+            return
+        }
+        _ui.update { it.copy(isLoading = true, errorMessage = null) }
+        discoverScooters(trimmed, "")
+    }
+
+    /** Translate server gates into honest, actionable guidance. */
+    private fun explainAuthError(message: String?): String {
+        val raw = message ?: return "Sign-in failed. Please try again."
+        return if (raw.contains("Outdated App version", ignoreCase = true)) {
+            "Ather has retired the public login API — new logins now require Google Play app " +
+                "verification that independent apps cannot provide. Sessions already signed in " +
+                "keep working. To sign in fresh, use the session-token option below."
+        } else raw
     }
 
     fun selectScooter(scooter: DiscoveredScooter) {

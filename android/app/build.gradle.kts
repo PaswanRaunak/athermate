@@ -15,8 +15,8 @@ android {
         applicationId = "io.ather.pro"
         minSdk = 26
         targetSdk = 34
-        versionCode = providers.gradleProperty("athrVersionCode").orNull?.toInt() ?: 34
-        versionName = providers.gradleProperty("athrVersionName").orNull ?: "1.4.0"
+        versionCode = providers.gradleProperty("athrVersionCode").orNull?.toInt() ?: 35
+        versionName = providers.gradleProperty("athrVersionName").orNull ?: "1.5.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // Personal values stay out of the repo: set in local.properties (gitignored).

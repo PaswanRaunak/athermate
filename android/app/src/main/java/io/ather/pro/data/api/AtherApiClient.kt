@@ -35,11 +35,11 @@ class AtherApiClient : AtherCloudApi {
     override fun connect(token: String, uuid: String, listener: AtherCloudApi.Listener): WebSocket {
         val request = Request.Builder()
             .url("wss://cerberus.ather.io/api/v1/ws/devices/shadows/onchange?uuid=$uuid")
-            .addHeader("Source", "ATHER_APP/13.2.0")
+            .addHeader("Source", "ATHER_APP/$OFFICIAL_APP_VERSION")
             .addHeader("X-Platform", "Android")
             .addHeader("X-Platform-Version", "14")
             .addHeader("X-Device-Info", "Google Pixel 8 Pro")
-            .addHeader("User-Agent", "Ather/13.2.0 android/14 (Google Pixel 8 Pro)")
+            .addHeader("User-Agent", "Ather/$OFFICIAL_APP_VERSION android/14 (Google Pixel 8 Pro)")
             .addHeader("Authorization", "Bearer $token")
             .build()
 
@@ -251,7 +251,7 @@ class AtherApiClient : AtherCloudApi {
 
     private fun Request.Builder.atherHeaders(token: String): Request.Builder = this
         .addHeader("Authorization", "Bearer $token")
-        .addHeader("Source", "ATHER_APP/13.2.0")
+        .addHeader("Source", "ATHER_APP/$OFFICIAL_APP_VERSION")
         .addHeader("X-Platform", "Android")
         .addHeader("X-Platform-Version", "14")
         .addHeader("Accept", "application/json")
@@ -637,7 +637,15 @@ class AtherApiClient : AtherCloudApi {
         return (this * scale).roundToInt() / scale
     }
 
-    private companion object {
+    companion object {
+        /**
+         * App version presented to Ather's API. The server enforces a minimum
+         * version for login ("Outdated App version") — keep this at or above the
+         * current official release. Verified against the official 13.6.0 build
+         * (versionCode 327): its headers are assembled as ATHER_APP/<version>.
+         */
+        const val OFFICIAL_APP_VERSION = "13.6.0"
+
         val SUBSCRIPTION = """
             {
               "paths": [

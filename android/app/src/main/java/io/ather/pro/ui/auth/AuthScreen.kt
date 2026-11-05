@@ -54,6 +54,7 @@ fun AuthScreen(
     onCountryChanged: (String) -> Unit,
     onOtpChanged: (String) -> Unit,
     onRequestOtp: () -> Unit,
+    onSignInWithToken: (String) -> Unit,
     onVerifyOtp: () -> Unit,
     onSelectScooter: (DiscoveredScooter) -> Unit,
     onRetryScooters: () -> Unit,
@@ -116,7 +117,8 @@ fun AuthScreen(
                         onCountryChanged = onCountryChanged,
                         isLoading = state.isLoading,
                         onPhoneChanged = onPhoneChanged,
-                        onRequestOtp = onRequestOtp
+                        onRequestOtp = onRequestOtp,
+                        onSignInWithToken = onSignInWithToken
                     )
 
                     AuthStep.OTP -> OtpStep(
@@ -171,7 +173,8 @@ private fun PhoneStep(
     isLoading: Boolean,
     onCountryChanged: (String) -> Unit,
     onPhoneChanged: (String) -> Unit,
-    onRequestOtp: () -> Unit
+    onRequestOtp: () -> Unit,
+    onSignInWithToken: (String) -> Unit
 ) {
     var showCountries by remember { mutableStateOf(false) }
     val country = PhoneNumbers.country(countryCode)
@@ -197,9 +200,57 @@ private fun PhoneStep(
         keyboardActions = KeyboardActions(onDone = { submit() }),
         colors = authFieldColors()
     )
-    Button(onClick = submit, enabled = canSubmit,
+    io.ather.pro.ui.motion.FilledActionButton(onClick = submit, enabled = canSubmit,
         modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
         Text(if (isLoading) "Sending…" else "Send OTP")
+    }
+
+    // Ather's fresh-login API now requires Google Play app verification that
+    // independent apps cannot provide. Offer the session-token path for users
+    // comfortable with it; everyone else keeps their existing session.
+    var showAdvanced by remember { mutableStateOf(false) }
+    var token by remember { mutableStateOf("") }
+    io.ather.pro.ui.motion.TextActionButton(onClick = { showAdvanced = !showAdvanced },
+        enabled = !isLoading, modifier = Modifier.fillMaxWidth()) {
+        Text(if (showAdvanced) "Hide advanced sign-in" else "Sign-in trouble? Advanced options",
+            style = MaterialTheme.typography.bodySmall)
+    }
+    androidx.compose.animation.AnimatedVisibility(
+        visible = showAdvanced,
+        enter = androidx.compose.animation.fadeIn(io.ather.pro.ui.motion.Motion.standard()) +
+            androidx.compose.animation.expandVertically(animationSpec = io.ather.pro.ui.motion.Motion.standard()),
+        exit = androidx.compose.animation.fadeOut(io.ather.pro.ui.motion.Motion.standard()) +
+            androidx.compose.animation.shrinkVertically(animationSpec = io.ather.pro.ui.motion.Motion.standard())
+    ) {
+        Column(verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
+            Text(
+                "Ather now requires Play-app verification for OTP sign-in, which independent apps " +
+                    "cannot pass. If you already have a session token (captured from your own device " +
+                    "with an HTTP inspector), paste it below to sign in without OTP.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            OutlinedTextField(
+                value = token,
+                onValueChange = { token = it.trim() },
+                enabled = !isLoading,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Session token (JWT)") },
+                placeholder = { Text("eyJhbGciOi…", maxLines = 1) },
+                textStyle = MaterialTheme.typography.bodySmall,
+                singleLine = false,
+                maxLines = 4,
+                shape = RoundedCornerShape(16.dp),
+                colors = authFieldColors()
+            )
+            io.ather.pro.ui.motion.FilledActionButton(
+                onClick = { keyboard?.hide(); onSignInWithToken(token) },
+                enabled = !isLoading && token.length > 40,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+            ) {
+                Text("Sign in with token")
+            }
+        }
     }
     if (showCountries) CountryPicker(countryCode, onDismiss = { showCountries = false }) {
         onCountryChanged(it)
@@ -286,11 +337,11 @@ private fun OtpStep(
         modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
         Text(if (isLoading) "Please wait…" else "Verify & continue")
     }
-    TextButton(onClick = onResend, enabled = !isLoading && secondsLeft == 0L,
+    io.ather.pro.ui.motion.TextActionButton(onClick = onResend, enabled = !isLoading && secondsLeft == 0L,
         modifier = Modifier.fillMaxWidth()) {
         Text(if (secondsLeft > 0) "Resend code in ${secondsLeft}s" else "Resend code")
     }
-    TextButton(onClick = onBack, enabled = !isLoading, modifier = Modifier.fillMaxWidth()) {
+    io.ather.pro.ui.motion.TextActionButton(onClick = onBack, enabled = !isLoading, modifier = Modifier.fillMaxWidth()) {
         Text("Change mobile number")
     }
 }

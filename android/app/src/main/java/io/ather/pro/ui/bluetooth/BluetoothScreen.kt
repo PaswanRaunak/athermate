@@ -479,18 +479,18 @@ private fun VehicleLinkCard(controller: VehicleLinkController) {
                 }) { Text("Use") }
             }
 
-            SmoothSection(visible = link.lastError != null) {
+            io.ather.pro.ui.motion.SmoothSection(visible = link.lastError != null) {
                 Text(link.lastError.orEmpty(), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error)
             }
 
-            SmoothSection(visible = link.link == io.ather.pro.ble.VehicleLinkController.LinkStatus.CONNECTED) {
+            io.ather.pro.ui.motion.SmoothSection(visible = link.link == io.ather.pro.ble.VehicleLinkController.LinkStatus.CONNECTED) {
                 Text("Test pushes to the dash", style = MaterialTheme.typography.labelLarge)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TonalAction("Incoming call") { controller.sendCall("Mom", ringing = true) }
-                    TonalAction("Now playing") { controller.sendMedia("Kaleidoscope", "Ather FM") }
-                    TonalAction("Navigation") { controller.sendTbt("Turn left onto MG Road", BleVehicleProfile.TBT_TURN_LEFT, 180) }
-                    TonalAction("WhatsApp") { controller.sendWhatsapp("Mom", "Ride safe!") }
+                    io.ather.pro.ui.motion.TonalActionButton(onClick = { controller.sendCall("Mom", ringing = true) }) { Text("Incoming call") }
+                    io.ather.pro.ui.motion.TonalActionButton(onClick = { controller.sendMedia("Kaleidoscope", "Ather FM") }) { Text("Now playing") }
+                    io.ather.pro.ui.motion.TonalActionButton(onClick = { controller.sendTbt("Turn left onto MG Road", BleVehicleProfile.TBT_TURN_LEFT, 180) }) { Text("Navigation") }
+                    io.ather.pro.ui.motion.TonalActionButton(onClick = { controller.sendWhatsapp("Mom", "Ride safe!") }) { Text("WhatsApp") }
                 }
             }
 
@@ -588,27 +588,3 @@ private fun VehicleLinkCard(controller: VehicleLinkController) {
     }
 }
 
-/** Animated section wrapper: springs (no overshoot), fade + vertical expand. */
-@Composable
-private fun SmoothSection(visible: Boolean, content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
-    AnimatedVisibility(
-        visible = visible,
-        enter = fadeIn(io.ather.pro.ui.motion.Motion.standard()) +
-            expandVertically(animationSpec = io.ather.pro.ui.motion.Motion.standard()),
-        exit = fadeOut(io.ather.pro.ui.motion.Motion.standard()) +
-            shrinkVertically(animationSpec = io.ather.pro.ui.motion.Motion.standard())
-    ) {
-        androidx.compose.foundation.layout.Column(verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
-            content()
-        }
-    }
-}
-
-/** FilledTonalButton with press-down scale feedback (Apple: respond on press). */
-@Composable
-private fun TonalAction(label: String, onClick: () -> Unit) {
-    val (source, scale) = io.ather.pro.ui.motion.rememberPressScale()
-    FilledTonalButton(onClick = onClick, interactionSource = source, modifier = scale) {
-        Text(label)
-    }
-}

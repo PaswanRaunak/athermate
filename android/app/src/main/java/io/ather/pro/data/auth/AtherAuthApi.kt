@@ -319,7 +319,9 @@ class AtherAuthApi(
         addHeader("Accept", "application/json")
         addHeader("Accept-Charset", "UTF-8")
         addHeader("User-Agent", "ktor-client")
-        addHeader("Source", "ATHER_APP/13.2.0")
+        // Login is version-gated server-side ("Outdated App version") — keep in
+        // sync with AtherApiClient.OFFICIAL_APP_VERSION.
+        addHeader("Source", "ATHER_APP/${io.ather.pro.data.api.AtherApiClient.OFFICIAL_APP_VERSION}")
         addHeader("X-Platform", "Android")
         if (!token.isNullOrBlank()) {
             addHeader("Authorization", "Bearer $token")
