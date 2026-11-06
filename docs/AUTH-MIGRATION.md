@@ -21,22 +21,65 @@ and what the new protocol looks like, so future work has a map.
   A third-party app cannot mint one. The official app itself sends requests
   header-less when token minting fails (the plugin never blocks).
 
-## The new flow (official 13.6.0)
+## The new flow (official 13.6.0) — REAL endpoints
 
-1. App generates a **PKCE** pair (`code_verifier` + `code_challenge`).
-2. `POST https://cerberus.ather.io/auth/generate-otp` — body
-   `GenerateOTPRequest`: `{"contactNo": "...", "notificationMedium": <SMS/WhatsApp/Email>}`
-   (fields per kotlinx-serialization: `contactNo`, `notificationMedium`).
-3. `POST …/user/verify-otp` (login path: `VerifyOTPRequest`) — body fields:
-   `email, contact_no, is_mobile_login, country_code, grant_type, client_id, code_verifier`
-   — standard OAuth/PKCE verification, returns the session grant.
-   (`user/generate-otp` is the logged-in variant used by contact-change flows —
-   `generateOtpWithToken`.)
-4. Every request to cerberus carries `X-Firebase-AppCheck: <token>` when the
-   token could be minted — the `AppCheckRequestPlugin(allowedHosts, tokenProvider,
-   timeoutMillis=10000)` Ktor plugin adds it only for hosts in `allowedHosts`
-   (configured with the host of `NetworkConfig("https://cerberus.ather.io/")`,
-   i.e. `cerberus.ather.io`).
+The login endpoints use **obfuscated paths** (why "generate-login-otp" never
+appears in the dex):
+
+- `POST https://cerberus.ather.io/api/v2/req/8h91` — GenerateLoginOTP
+  (`coronalite/constants/a.java`, enum case GenerateLoginOTP)
+- `POST https://cerberus.ather.io/api/v2/req/8h71` — VerifyLoginOTP
+- (`auth/generate-otp`, `user/generate-otp`, `user/verify-otp` are the
+  contact-change/verification endpoints, also App-Check enforced)
+
+**GenerateLoginOTP body** (`LoginOTPRequest`, kotlinx-serialization fields):
+`email, contact_no, country_code, notification_medium, code_challenge, code_challenge_method`
+where `notification_medium` is a JSON object `{"whatsapp": bool, "sms": bool}`
+(custom serializer `coronalite/helpers/f.java`).
+
+**VerifyLoginOTP body** (`VerifyOTPRequest`):
+`email, contact_no, is_mobile_login, country_code, grant_type, client_id, code_verifier`
+— standard OAuth/PKCE verification.
+
+## App Check enforcement — verified live
+
+Error codes on the real login endpoint (`api/v2/req/8h91`):
+- no `X-Firebase-AppCheck` header → `401 {"errorCode":1013}`
+- garbage token → `401 {"errorCode":1014}`
+- (a valid token presumably proceeds; the official Ktor plugin
+  `AppCheckRequestPlugin(allowedHosts={cerberus.ather.io}, tokenProvider, 10s)`
+  attaches it, and sends header-less when minting fails)
+
+App Check tokens are minted via **Play Integrity** (`firebase.appcheck.playintegrity`)
+and are bound to the official package + signing cert at Google's exchange
+endpoint. A third-party app cannot mint one; a custom ROM without a passing
+integrity verdict cannot either — **the official app itself cannot log in fresh
+on such devices** (its own plugin sends header-less when minting fails, and the
+server rejects with 1013).
+
+## Token extraction (the working path for fresh sign-in)
+
+The official app persists its session in **Jetpack DataStore**
+(`com.ather.common.datastore.SessionManager`, `UserSession.accessToken` /
+`refreshToken`) at:
+
+```
+/data/data/com.athermobileapp/files/datastore/<…>.preferences_pb
+```
+
+On a rooted/custom-ROM device:
+
+```
+adb shell su -c "cat /data/data/com.athermobileapp/files/datastore/*.preferences_pb" | strings | grep ^eyJ
+```
+
+The `eyJ…` string is the access JWT. Paste it into AtherMate's
+**Sign-in trouble? Advanced options → Session token (JWT)** field — the vehicle
+is auto-discovered and the session completes (same token the app would have
+received from login).
+
+AtherMate's own existing seed path (`ather_session.json` via adb push, see
+`SecureSessionStore.importUntrackedSeedIfPresent`) also still works.
 
 ## Header notes
 
