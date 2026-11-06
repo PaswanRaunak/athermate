@@ -81,6 +81,29 @@ received from login).
 AtherMate's own existing seed path (`ather_session.json` via adb push, see
 `SecureSessionStore.importUntrackedSeedIfPresent`) also still works.
 
+## Emulator finding (13.6.0 on a Google-APIs Android 14 emulator)
+
+The official app **runs** (arm64 translation works on x86_64 emulators) but
+blocks itself with its own device check on launch:
+
+> "Something went wrong — Check that Google Play is enabled on your device and
+> that you're using an up-to-date version before opening the app…"
+
+The dialog re-appears after Close. So the official app cannot be used as a
+token source on emulators either. Re-signing/patching the official APK to
+remove its device checks is also futile for login: any modified APK changes
+the signing cert, and App Check binds to the cert — the wall holds.
+
+## Practical consequences
+
+- Fresh OTP login requires: official app + Play-certified device + passing
+  App Check. All three together only exist on stock devices.
+- Custom-ROM users: make the official app run on YOUR device (root path:
+  Magisk + PlayIntegrityFix + Shamiko, hide developer options), sign in
+  there, then extract the token with root and paste into AtherMate — or use
+  any stock Android device for the official login and extract there.
+- Existing sessions (JWT) are unaffected by all of this.
+
 ## Header notes
 
 - The official app assembles `Source: ATHER_APP/<version>` at runtime from its
