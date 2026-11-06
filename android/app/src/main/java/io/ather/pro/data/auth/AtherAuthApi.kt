@@ -60,6 +60,108 @@ class AtherAuthApi(
         }
     }
 
+    /**
+     * New-protocol OTP request (13.6.0, api/v2/req/8h91): PKCE challenge + medium
+     * object + X-Firebase-AppCheck header when a token source is wired. Returns
+     * failure with the server message — the ViewModel maps 1013/1014 walls.
+     */
+    fun requestOtpV2(
+        phone: String,
+        countryCode: String,
+        pkce: LoginPkce.Pair,
+        whatsapp: Boolean,
+        callback: (Result<Unit>) -> Unit
+    ) {
+        val payload = JsonObject().apply {
+            addProperty("email", "")
+            addProperty("contact_no", phone)
+            addProperty("country_code", countryCode)
+            add("notification_medium", JsonObject().apply {
+                addProperty("whatsapp", whatsapp)
+                addProperty("sms", !whatsapp)
+            })
+            addProperty("code_challenge", pkce.challenge)
+            addProperty("code_challenge_method", "S256")
+        }
+        postJsonV2(GENERATE_OTP_V2_URL, payload) { result ->
+            callback(result.map { })
+        }
+    }
+
+    /** Verify step of the new flow — grant_type/client_id echo the medium + PKCE state. */
+    fun verifyOtpV2(
+        phone: String,
+        otp: String,
+        countryCode: String,
+        pkce: LoginPkce.Pair,
+        whatsapp: Boolean,
+        callback: (Result<String>) -> Unit
+    ) {
+        val payload = JsonObject().apply {
+            addProperty("email", "")
+            addProperty("contact_no", phone)
+            addProperty("is_mobile_login", true)
+            addProperty("country_code", countryCode)
+            addProperty("grant_type", if (whatsapp) "whatsapp" else "sms")
+            addProperty("client_id", "ather_app")
+            addProperty("code_verifier", pkce.verifier)
+            addProperty("userOtp", otp)
+        }
+        postJsonV2(VERIFY_OTP_V2_URL, payload) { result ->
+            callback(result.mapCatching { root ->
+                extractToken(root) ?: error("Login succeeded but token was missing")
+            })
+        }
+    }
+
+    /** V2 requests add X-Firebase-AppCheck when a token can be minted. */
+    private fun postJsonV2(
+        url: String,
+        payload: JsonObject,
+        callback: (Result<JsonObject>) -> Unit
+    ) {
+        val request = Request.Builder()
+            .url(url)
+            .atherHeaders(null)
+            .header("X-Firebase-AppCheck", appCheckTokenSource?.invoke().orEmpty())
+            .post(payload.toString().toRequestBody(JSON_MEDIA_TYPE))
+            .build()
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                callback(Result.failure(e))
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                response.use {
+                    val body = it.body?.string().orEmpty()
+                    if (!it.isSuccessful) {
+                        val code = runCatching {
+                            gson.fromJson(body, JsonObject::class.java)?.get("errorCode")?.asInt
+                        }.getOrNull()
+                        val message = runCatching {
+                            gson.fromJson(body, JsonObject::class.java)
+                                ?.text("message", "error", "msg")
+                        }.getOrNull() ?: "HTTP ${it.code}"
+                        val tagged = when (code) {
+                            1013 -> "$message [appcheck:missing]"
+                            1014 -> "$message [appcheck:invalid]"
+                            else -> message
+                        }
+                        callback(Result.failure(IOException(tagged)))
+                        return
+                    }
+                    val root = runCatching {
+                        gson.fromJson(body, JsonObject::class.java)
+                    }.getOrElse { error ->
+                        callback(Result.failure(IOException("Invalid response body")))
+                        return
+                    }
+                    callback(Result.success(root))
+                }
+            }
+        })
+    }
+
     fun fetchScooters(token: String, callback: (Result<List<DiscoveredScooter>>) -> Unit) {
         getJson(ME_URL, token) { meResult ->
             meResult.fold(
@@ -342,6 +444,11 @@ class AtherAuthApi(
     companion object {
         private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
         private const val GENERATE_OTP_URL = "https://cerberus.ather.io/auth/v2/generate-login-otp"
+        /** New (13.6.0) obfuscated login endpoints — App Check enforced. */
+        private const val GENERATE_OTP_V2_URL = "https://cerberus.ather.io/api/v2/req/8h91"
+        private const val VERIFY_OTP_V2_URL = "https://cerberus.ather.io/api/v2/req/8h71"
+        /** Set by the app when Firebase App Check is wired (google-services.json present). */
+        @Volatile var appCheckTokenSource: (() -> String?)? = null
         private const val VERIFY_OTP_URL = "https://cerberus.ather.io/auth/v2/verify-login-otp"
         private const val ME_URL = "https://cerberus.ather.io/api/v1/me"
         private const val FIREBASE_SCOOTERS_URL =
