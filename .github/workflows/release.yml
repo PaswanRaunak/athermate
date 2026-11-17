@@ -34,7 +34,7 @@ jobs:
           java-version: '21'
       - uses: android-actions/setup-android@v3
       - name: Install pinned Android build tools
-        run: sdkmanager 'platforms;android-34' 'build-tools;34.0.0' 'ndk;26.1.10909125'
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'ndk;26.1.10909125'
       - name: Install Rust Android targets
         run: |
           rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android i686-linux-android

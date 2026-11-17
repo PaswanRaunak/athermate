@@ -9,7 +9,8 @@ plugins {
 
 android {
     namespace = "io.ather.pro"
-    compileSdk = 34
+    // 35 required by CameraX 1.4+ (16 KB-aligned native libs); AGP 8.7 supports it.
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "io.ather.pro"
@@ -97,12 +98,16 @@ dependencies {
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
     implementation("androidx.work:work-runtime-ktx:2.9.1")
 
-    // QR pairing: CameraX frames decoded by the embedded ZXing core
-    val cameraVersion = "1.3.4"
+    // QR pairing: CameraX frames decoded by the embedded ZXing core.
+    // 1.4.2 ships 16 KB-page-aligned native libraries (Android 15+ ROMs check).
+    val cameraVersion = "1.4.2"
     implementation("androidx.camera:camera-core:$cameraVersion")
     implementation("androidx.camera:camera-camera2:$cameraVersion")
     implementation("androidx.camera:camera-lifecycle:$cameraVersion")
     implementation("androidx.camera:camera-view:$cameraVersion")
+    // graphics-path 1.1.0 ships a 16 KB-aligned libandroidx.graphics.path.so
+    // (overrides the older transitive version from Compose).
+    implementation("androidx.graphics:graphics-path:1.1.0")
     implementation("com.google.zxing:core:3.5.3")
 
     val roomVersion = "2.6.1"

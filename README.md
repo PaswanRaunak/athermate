@@ -107,7 +107,8 @@ Athr+ gave everyone full, unrestricted access to their own scooter—live batter
 - **Home-screen widgets:** the classic widget with battery, current range, clear per-mode range rows, sync time, connection status, and a limiter bar when enabled, plus the charging widget for the lock screen. Widget colors follow system appearance changes.
 - **Model-independent battery artwork:** an animated battery while charging and the scooter launcher icon.
 - **Rust calculations:** native history selection, range scaling, and charging estimates for ARM and x86 devices.
-- **Phone sign-in:** searchable country calling codes (India +91 by default), international number paste, country-aware validation, and SMS code resend with a countdown. OTP delivery for each country depends on the account provider.
+- **Phone sign-in:** searchable country calling codes (India +91 by default), international number paste, country-aware validation, and SMS code resend with a countdown. Note: Ather's server now enforces Google Play app verification (Firebase App Check) on fresh OTP logins, which independent apps cannot pass — sessions signed in before the enforcement keep working, and the session-token option below is the renewal path.
+- **Session visibility and renewal:** Settings shows how long your sign-in stays valid with a color-coded status; the dashboard warns when the session is within 48 hours of expiring; and the session token can be copied from Settings (masked on screen — it never renders in readable form) to restore access through the sign-in screen's token field without an OTP. Signing out clears it from the phone.
 - **Smooth map interaction:** display-paced heading animation and a request for the fastest supported refresh rate up to 144 Hz while a map is open. Actual frame rate depends on the device, Android settings, and WebView.
 - **Maps and ride analytics:** Leaflet street maps, vehicle heading, local trip history, and available battery/efficiency information.
 - **Vehicle link over BLE:** dash pairing via QR, turn-by-turn navigation, calls with caller names and joystick accept/reject, WhatsApp messages and calls, now-playing with media/volume control from the dash, and a Quick Settings tile — see "What AtherMate adds" above for the full description.
@@ -115,7 +116,7 @@ Athr+ gave everyone full, unrestricted access to their own scooter—live batter
 
 ## Build
 
-Requires JDK 17 or 21, Android SDK API 34, Build-Tools `34.0.0`, NDK `26.1.10909125`, and Rust with these targets:
+Requires JDK 17 or 21, Android SDK API 35, Build-Tools `35.0.0`, NDK `26.1.10909125`, and Rust with these targets:
 
 ```sh
 rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android i686-linux-android

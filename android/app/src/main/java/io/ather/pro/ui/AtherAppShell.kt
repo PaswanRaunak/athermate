@@ -6,15 +6,18 @@ import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import io.ather.pro.data.auth.AuthSession
@@ -107,6 +110,34 @@ fun AtherAppShell(
         Column(Modifier.fillMaxSize().padding(padding)
             .background(Brush.verticalGradient(listOf(shellColors.background, shellColors.surfaceContainerLowest)))) {
             AppUpdateBanner(updateState, onOpenUpdate)
+            // JWT sessions expire server-side with no refresh flow — warn while
+            // there is still time to re-sign-in without losing live coverage.
+            session.expiresAtEpochSec?.let { expSec ->
+                val remainingSec = expSec - System.currentTimeMillis() / 1000L
+                if (remainingSec in 0..(48L * 3600L)) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.tertiaryContainer,
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 8.dp)
+                    ) {
+                        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Icon(Icons.Default.Warning, contentDescription = null,
+                                modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.tertiary)
+                            Column {
+                                Text("Session expiring soon",
+                                    style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    if (remainingSec < 3600L) "Your sign-in expires within the hour. After that, sign in again with an OTP to keep live data."
+                                    else "Your sign-in expires in about ${remainingSec / 3600L} h. After that, sign in again with an OTP to keep live data.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                )
+                            }
+                        }
+                    }
+                }
+            }
             Box(Modifier.weight(1f)) {
                 stateHolder.SaveableStateProvider(selected.name) {
                     when (selected) {

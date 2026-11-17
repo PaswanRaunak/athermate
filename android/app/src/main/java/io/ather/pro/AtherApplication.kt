@@ -15,6 +15,15 @@ class AtherApplication : Application() {
     val container by lazy { AppContainer(this) }
     override fun onCreate() {
         super.onCreate()
+        // Diagnostic: what does the framework report as the official app's install source?
+        runCatching {
+            val info = packageManager.getInstallSourceInfo("com.athermobileapp")
+            android.util.Log.i("AtherMateDiag",
+                "official install source: initiating=${info.initiatingPackageName} " +
+                    "originating=${info.originatingPackageName} " +
+                    "installing=${info.installingPackageName} " +
+                    "updateOwner=${info.updateOwnerPackageName}")
+        }.onFailure { android.util.Log.i("AtherMateDiag", "install source query failed: ${it.message}") }
         io.ather.pro.data.update.AppUpdateWorker.schedule(this)
         io.ather.pro.widget.WidgetAppearanceReceiver.register(this)
         io.ather.pro.widget.DashboardWidgetUpdater.refreshAll(this)

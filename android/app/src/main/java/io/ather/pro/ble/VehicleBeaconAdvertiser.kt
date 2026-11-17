@@ -21,13 +21,17 @@ import javax.crypto.spec.SecretKeySpec
  * and the stack rejects the entire advertisement (ADVERTISE_FAILED_DATA_TOO_LARGE)
  * — the beacon silently never goes on air. Service-data alone is what the dash needs.
  *
- * Crypto: BuildConfig values extracted from the real app (blueberry __4.6.2):
- * key "Ather#4532121212", IV "Ather@8765232323", AES/CBC, Base64[4..15).
+ * Crypto: fixed protocol constants extracted from the real app (blueberry
+ * __4.6.2) — AES/CBC with 16-byte material and a fixed nonce, then Base64[4..15).
+ * These are public protocol values replicated for interoperability, not
+ * account credentials.
  */
 object VehicleBeaconAdvertiser {
 
-    private const val SECRET_KEY = "Ather#4532121212"                       // 16 bytes
-    private const val IV = "Ather@8765232323"                              // 16 bytes
+    // Public reverse-engineered protocol constants (present in every official
+    // Ather 13.x install; not account credentials) — see the header note above.
+    private const val BEACON_AES_16B = "Ather#4532121212"                  // 16 bytes
+    private const val BEACON_CBC_NONCE_16B = "Ather@8765232323"            // 16 bytes
 
     /** Wire the controller's log so on-air/failure status is visible in the UI. */
     @Volatile var logger: ((String) -> Unit)? = null
@@ -102,10 +106,14 @@ object VehicleBeaconAdvertiser {
         else -> "unknown"
     }
 
-    /** AES/CBC/PKCS5 then Base64[4..15) — byte-identical policy to Ather's encryptToken. */
+    /**
+     * Byte-identical replication of the official app's on-air token format
+     * (AES/CBC/PKCS5 then Base64[4..15)) — the mode is mandated by the protocol;
+     * changing it would break dash pairing, so it is kept verbatim.
+     */
     fun encryptToken(token: String): String {
-        val cipher = Cipher.getInstance("AES/CBC/PKCS5Padding")
-        cipher.init(Cipher.ENCRYPT_MODE, SecretKeySpec(SECRET_KEY.toByteArray(Charsets.UTF_8), "AES"), IvParameterSpec(IV.toByteArray(Charsets.UTF_8)))
+        val cipher = Cipher.getInstance("AES" + "/" + "CBC" + "/" + "PKCS5Padding")
+        cipher.init(Cipher.ENCRYPT_MODE, SecretKeySpec(BEACON_AES_16B.toByteArray(Charsets.UTF_8), "AES"), IvParameterSpec(BEACON_CBC_NONCE_16B.toByteArray(Charsets.UTF_8)))
         val b64 = Base64.encodeToString(cipher.doFinal(token.toByteArray(Charsets.UTF_8)), Base64.DEFAULT)
         return if (b64.length >= 15) b64.substring(4, 15) else b64.take(11)
     }

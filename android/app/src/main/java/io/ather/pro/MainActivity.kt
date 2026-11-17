@@ -98,6 +98,7 @@ class MainActivity : ComponentActivity() {
                 val chargeLimit by dashboardViewModel.chargeLimit.collectAsStateWithLifecycle()
                 val monitoring by appContainer.monitoring.state.collectAsStateWithLifecycle()
                 val ble by bleViewModel.ui.collectAsStateWithLifecycle()
+                val expiredSession by appContainer.sessionStore.expiredSession.collectAsStateWithLifecycle()
 
                 Surface(
                     modifier = Modifier.fillMaxSize(),
@@ -117,6 +118,7 @@ class MainActivity : ComponentActivity() {
                             Box(Modifier.weight(1f)) {
                                 AuthScreen(
                                     state = authState,
+                                    expiredSession = expiredSession,
                                     onPhoneChanged = authViewModel::onPhoneChanged,
                                     onCountryChanged = authViewModel::onCountryChanged,
                                     onOtpChanged = authViewModel::onOtpChanged,

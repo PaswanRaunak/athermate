@@ -43,6 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import io.ather.pro.data.auth.AuthSession
 import io.ather.pro.data.auth.AuthStep
 import io.ather.pro.data.auth.AuthUiState
 import io.ather.pro.data.auth.DiscoveredScooter
@@ -50,6 +51,7 @@ import io.ather.pro.data.auth.DiscoveredScooter
 @Composable
 fun AuthScreen(
     state: AuthUiState,
+    expiredSession: AuthSession? = null,
     onPhoneChanged: (String) -> Unit,
     onCountryChanged: (String) -> Unit,
     onOtpChanged: (String) -> Unit,
@@ -106,6 +108,33 @@ fun AuthScreen(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+
+        if (expiredSession != null) {
+            // The stored session was dropped at startup because its JWT expired —
+            // say so here instead of silently dumping the user onto sign-in.
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+            ) {
+                Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(
+                        text = "Session expired",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                    val expiryText = expiredSession.expiresAtEpochSec?.let { exp ->
+                        "on " + java.text.SimpleDateFormat("EEE, d MMM · h:mm a", java.util.Locale.getDefault())
+                            .format(java.util.Date(exp * 1000L))
+                    } ?: "recently"
+                    Text(
+                        text = "Your previous sign-in ended $expiryText. Sign in again to reconnect — your data stays on this phone.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                }
+            }
+        }
 
         Card(shape = RoundedCornerShape(24.dp), modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {

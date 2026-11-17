@@ -1,5 +1,8 @@
 package io.ather.pro.ui
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -17,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -30,6 +34,11 @@ import io.ather.pro.domain.model.ScooterArtwork
 import io.ather.pro.domain.model.ScooterDashboardState
 import io.ather.pro.domain.model.ScooterModel
 import io.ather.pro.domain.monitoring.MonitoringState
+import kotlinx.coroutines.delay
+
+/** Fully masked preview — no token characters or its true length are shown; copy-only. */
+private fun maskToken(token: String): String =
+    if (token.isBlank()) "—" else "•••• •••• •••• ••••"
 
 @Composable
 internal fun MonitoringCard(state: MonitoringState, limitEnabled: Boolean, onChange: (Boolean) -> Unit) {
@@ -90,6 +99,8 @@ internal fun SettingsScreen(
     var colourMenu by remember { mutableStateOf(false) }
     var rate by rememberSaveable(dashboard.settings.tariffRatePerKWh) { mutableStateOf(dashboard.settings.tariffRatePerKWh.toString()) }
     var signOut by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     val parsedRate = rate.toDoubleOrNull()?.takeIf { it.isFinite() && it in 0.0..100.0 }
     val colors = MaterialTheme.colorScheme
     LazyColumn(contentPadding = PaddingValues(18.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -142,7 +153,48 @@ internal fun SettingsScreen(
                 Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(session.displayName?.takeIf(String::isNotBlank) ?: "Your AtherMate account",
                         style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Text("Your sign-in is stored on this phone and kept when updating AtherMate.",
+                    // JWT sessions expire server-side; show how long this one has left.
+                    session.expiresAtEpochSec?.let { expSec ->
+                        val remainingSec = expSec - System.currentTimeMillis() / 1000L
+                        val (stateLabel, stateColor) = when {
+                            remainingSec <= 0 -> "expired" to colors.error
+                            remainingSec < 24L * 3600L -> "expires today" to colors.error
+                            remainingSec < 7L * 86_400L -> "expires in ${remainingSec / 86_400L} d" to colors.tertiary
+                            else -> "valid" to colors.primary
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Box(Modifier.size(7.dp).clip(CircleShape).background(stateColor))
+                            val expiryText = java.text.SimpleDateFormat("EEE, d MMM · h:mm a", java.util.Locale.getDefault())
+                                .format(java.util.Date(expSec * 1000L))
+                            Text("Session $stateLabel · valid until $expiryText",
+                                style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                        }
+                    }
+                    // Copyable token: lets the user restore access via the login
+                    // screen's "Session token" field without spending an OTP.
+                    var tokenCopied by remember { mutableStateOf(false) }
+                    LaunchedEffect(tokenCopied) {
+                        if (tokenCopied) { delay(2000); tokenCopied = false }
+                    }
+                    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("SESSION TOKEN", style = MaterialTheme.typography.labelSmall,
+                            color = colors.onSurfaceVariant, letterSpacing = 1.sp)
+                        Text(maskToken(session.token),
+                            style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace,
+                            color = colors.onSurface)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically) {
+                            TextButton(onClick = {
+                                clipboard.setPrimaryClip(ClipData.newPlainText("AtherMate session token", session.token))
+                                tokenCopied = true
+                            }) { Text(if (tokenCopied) "Copied ✓" else "Copy token") }
+                            Text("bearer — keep private", style = MaterialTheme.typography.labelSmall,
+                                color = colors.onSurfaceVariant)
+                        }
+                        Text("Paste into “Session token” under Advanced options on the sign-in screen to restore access without an OTP. Copy again before it expires — signing out clears it from this phone.",
+                            style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                    }
+                    Text("Your sign-in is stored on this phone and kept when updating AtherMate. When the session expires, sign in again with an OTP — there is no silent refresh.",
                         style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
                     OutlinedButton(onClick = { signOut = true },
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = colors.error)) {

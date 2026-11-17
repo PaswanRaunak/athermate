@@ -23,6 +23,11 @@ class SecureSessionStore(context: Context) {
     private val gson = Gson()
     private val prefs: SharedPreferences = createEncryptedPrefs(appContext)
 
+    // Declared before _session: loadSession() (run by its initializer) records
+    // discarded expired sessions here.
+    private val _expiredSession = MutableStateFlow<AuthSession?>(null)
+    val expiredSession: StateFlow<AuthSession?> = _expiredSession.asStateFlow()
+
     private val _session = MutableStateFlow(loadSession())
     val session: StateFlow<AuthSession?> = _session.asStateFlow()
 
@@ -46,6 +51,7 @@ class SecureSessionStore(context: Context) {
             .putString(KEY_DISPLAY_NAME, session.displayName)
             .putLong(KEY_EXPIRES_AT, exp ?: -1L)
             .apply()
+        _expiredSession.value = null
         _session.value = session.copy(expiresAtEpochSec = exp)
     }
 
@@ -78,6 +84,8 @@ class SecureSessionStore(context: Context) {
             expiresAtEpochSec = expStored
         )
         return if (session.isExpired()) {
+            // Keep the discarded session visible so the login screen can say why.
+            _expiredSession.value = session
             prefs.edit().clear().apply()
             null
         } else {

@@ -34,3 +34,7 @@ charge-limit.lock
 
 # Native build artifacts
 rust/target/
+
+# Local security-scanner and tool artifacts
+.mimosa/
+graphify-out/
