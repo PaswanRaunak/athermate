@@ -103,11 +103,7 @@ fun BatteryHistoryCard(dashboard: ScooterDashboardState, modifier: Modifier = Mo
         "${String.format(Locale.US, "%.2f", it.batterySoc)}% at ${readingTimeFormat.format(Date(it.timestamp))}"
     } ?: "No battery readings in this window"
 
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = colors.surface),
-        shape = RoundedCornerShape(20.dp)
-    ) {
+    io.ather.pro.ui.theme.GlassCard(modifier = modifier.fillMaxWidth()) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {

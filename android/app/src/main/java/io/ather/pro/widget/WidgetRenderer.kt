@@ -166,7 +166,7 @@ object WidgetRenderer {
         val accent = colors.primary.toArgb()
         val primary = colors.onSurface.toArgb()
         val secondary = colors.onSurfaceVariant.toArgb()
-        val chargingColor = if (colors.surface.luminance() > 0.5f) 0xFF16A34A.toInt() else 0xFF4ADE80.toInt()
+        val chargingColor = if (colors.surface.luminance() > 0.5f) 0xFF059669.toInt() else 0xFF34D399.toInt()
         val fresh = snapshot.connectionLabel == "LIVE" && now - snapshot.updatedAtMs in 0L..60_000L
         val charging = snapshot.charging
         val status = when {

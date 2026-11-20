@@ -11,6 +11,7 @@ import io.ather.pro.data.auth.AtherAuthApi
 import io.ather.pro.data.auth.DiscoveredScooter
 import io.ather.pro.data.auth.PhoneNumbers
 import io.ather.pro.data.auth.JwtExpiry
+import io.ather.pro.data.auth.LoginPkce
 import io.ather.pro.data.auth.SecureSessionStore
 import io.ather.pro.data.repository.AtherRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -81,8 +82,12 @@ class AuthViewModel(
             _ui.update { it.copy(errorMessage = "Enter a valid mobile number for the selected country") }
             return
         }
-        _ui.update { it.copy(phone = number.national, countryCode = number.region, isLoading = true, errorMessage = null) }
-        authApi.requestOtp(number.national, number.region) { result ->
+        // V2 login protocol (official 13.6.0): PKCE challenge goes with the OTP
+        // request, the verifier proves possession at verify time.
+        val pkce = LoginPkce.newPair()
+        _ui.update { it.copy(phone = number.national, countryCode = number.region, pkce = pkce,
+            isLoading = true, errorMessage = null) }
+        authApi.requestOtpV2(number.national, number.region, pkce, whatsapp = false) { result ->
             _ui.update { state ->
                 result.fold(
                     onSuccess = {
@@ -92,6 +97,7 @@ class AuthViewModel(
                     onFailure = { error ->
                         state.copy(
                             isLoading = false,
+                            pkce = null,
                             errorMessage = explainAuthError(error.message ?: "Could not send OTP")
                         )
                     }
@@ -105,12 +111,16 @@ class AuthViewModel(
         if (state.isLoading || state.step != AuthStep.OTP) return
         val phone = state.phone.trim()
         val otp = state.otp.trim()
+        val pkce = state.pkce ?: run {
+            _ui.update { it.copy(errorMessage = "Restart the sign-in — the OTP request did not complete.") }
+            return
+        }
         if (otp.length < 4) {
             _ui.update { it.copy(errorMessage = "Enter the OTP from SMS") }
             return
         }
         _ui.update { it.copy(isLoading = true, errorMessage = null) }
-        authApi.verifyOtp(phone, otp, state.countryCode) { result ->
+        authApi.verifyOtpV2(phone, otp, state.countryCode, pkce, whatsapp = false) { result ->
             result.fold(
                 onSuccess = { token ->
                     discoverScooters(token, phone)
@@ -147,11 +157,14 @@ class AuthViewModel(
     /** Translate server gates into honest, actionable guidance. */
     private fun explainAuthError(message: String?): String {
         val raw = message ?: return "Sign-in failed. Please try again."
-        return if (raw.contains("Outdated App version", ignoreCase = true)) {
-            "Ather has retired the public login API — new logins now require Google Play app " +
-                "verification that independent apps cannot provide. Sessions already signed in " +
-                "keep working. To sign in fresh, use the session-token option below."
-        } else raw
+        if (raw.contains("[appcheck:missing]") || raw.contains("[appcheck:invalid]") ||
+            raw.contains("Outdated App version", ignoreCase = true)) {
+            return "Ather requires the official app (Google Play verification) for fresh OTP logins — " +
+                "independent apps cannot pass that check. Sessions already signed in keep working. " +
+                "To sign in fresh, copy a session token from a logged-in device (Settings → Copy token, " +
+                "or the official app — see docs/AUTH-MIGRATION.md) and use the token field below."
+        }
+        return raw
     }
 
     fun selectScooter(scooter: DiscoveredScooter) {

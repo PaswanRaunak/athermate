@@ -37,7 +37,7 @@ object MonitorNotification {
             .setContentIntent(open).setOngoing(true).setOnlyAlertOnce(true).setSilent(true)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
         if (charging) {
-            builder.setColor(0xFF4ADE80.toInt())
+            builder.setColor(0xFF34D399.toInt())
             if (socPercent != null) builder.setProgress(100, socPercent.coerceIn(0, 100), false)
         }
         return builder.addAction(0, "Stop monitoring", stop).build()

@@ -34,6 +34,7 @@ import io.ather.pro.domain.model.ScooterArtwork
 import io.ather.pro.domain.model.ScooterDashboardState
 import io.ather.pro.domain.model.ScooterModel
 import io.ather.pro.domain.monitoring.MonitoringState
+import io.ather.pro.ui.theme.GlassCard
 import kotlinx.coroutines.delay
 
 /** Fully masked preview — no token characters or its true length are shown; copy-only. */
@@ -49,7 +50,7 @@ internal fun MonitoringCard(state: MonitoringState, limitEnabled: Boolean, onCha
         state.alwaysEnabled || limitEnabled -> "Quiet checks while idle" to colors.tertiary
         else -> "Off" to colors.onSurfaceVariant
     }
-    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
+    io.ather.pro.ui.theme.GlassCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -103,13 +104,13 @@ internal fun SettingsScreen(
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     val parsedRate = rate.toDoubleOrNull()?.takeIf { it.isFinite() && it in 0.0..100.0 }
     val colors = MaterialTheme.colorScheme
-    LazyColumn(contentPadding = PaddingValues(18.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    LazyColumn(contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 18.dp, bottom = 112.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item { AppUpdateCard(updateState, onCheckUpdate, onOpenUpdate) }
         item { SectionLabel("Background") }
         item { MonitoringCard(monitoring, limitEnabled, onMonitoringChange) }
         item { SectionLabel("Estimates") }
         item {
-            Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
+            io.ather.pro.ui.theme.GlassCard(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("Charge estimates", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     Text("Battery size used for energy and cost estimates.", style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
@@ -149,7 +150,7 @@ internal fun SettingsScreen(
         item { ProjectSupportCard() }
         item { SectionLabel("Account") }
         item {
-            Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
+            io.ather.pro.ui.theme.GlassCard(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(session.displayName?.takeIf(String::isNotBlank) ?: "Your AtherMate account",
                         style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)

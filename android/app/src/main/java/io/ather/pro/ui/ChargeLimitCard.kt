@@ -24,6 +24,7 @@ import io.ather.pro.domain.charging.ChargeTimeEstimator
 import io.ather.pro.domain.charging.ChargingControl
 import io.ather.pro.domain.model.ScooterDashboardState
 import io.ather.pro.ui.components.number
+import io.ather.pro.ui.theme.themeGlassSurface
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -71,7 +72,7 @@ fun ChargeLimitCard(
     }
     val soc = dashboard.telemetry?.batterySoc?.takeIf { it.isFinite() && it in 0.0..100.0 }
 
-    Card(modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
+    io.ather.pro.ui.theme.GlassCard(modifier.fillMaxWidth()) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             // header: title + live status
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -127,7 +128,11 @@ fun ChargeLimitCard(
             }
 
             // ETA panel
-            Surface(color = colors.surfaceContainerLow, shape = RoundedCornerShape(18.dp)) {
+            Box(
+                Modifier.fillMaxWidth()
+                    .clip(RoundedCornerShape(18.dp))
+                    .themeGlassSurface(RoundedCornerShape(18.dp))
+            ) {
                 Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (estimate != null) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {

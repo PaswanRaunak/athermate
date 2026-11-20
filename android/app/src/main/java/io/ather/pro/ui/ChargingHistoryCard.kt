@@ -56,7 +56,7 @@ fun ChargingHistoryCard(
         ChargingSessionHistory.bucketFor(sessions, YearMonth.now())
     }
 
-    Card(modifier = modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
+    io.ather.pro.ui.theme.GlassCard(modifier = modifier.fillMaxWidth()) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {

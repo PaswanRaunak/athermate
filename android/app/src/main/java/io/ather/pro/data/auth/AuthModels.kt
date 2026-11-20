@@ -40,6 +40,8 @@ data class AuthUiState(
     val countryCode: String = "IN",
     val resendAvailableAtMillis: Long = 0L,
     val pendingToken: String? = null,
+    /** PKCE pair for the V2 login protocol — challenge sent with the OTP request, verifier proven on verify. */
+    val pkce: LoginPkce.Pair? = null,
     val scooters: List<DiscoveredScooter> = emptyList(),
     val isLoading: Boolean = false,
     val errorMessage: String? = null,

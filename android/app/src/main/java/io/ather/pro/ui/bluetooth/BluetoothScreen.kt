@@ -14,6 +14,7 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -148,7 +149,7 @@ fun BluetoothScreen(
 
     LazyColumn(
         Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(18.dp),
+        contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 18.dp, bottom = 112.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         qrNotice?.let { notice ->
@@ -164,7 +165,7 @@ fun BluetoothScreen(
         item { VehicleLinkCard(vehicleLink) }
 
         item {
-            Card(Modifier.fillMaxWidth()) {
+            io.ather.pro.ui.theme.GlassCard(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Icon(
@@ -216,7 +217,7 @@ fun BluetoothScreen(
         }
 
         item {
-            Card(Modifier.fillMaxWidth()) {
+            io.ather.pro.ui.theme.GlassCard(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("Live data", style = MaterialTheme.typography.titleMedium)
                     val snapshot = state.snapshot
@@ -244,7 +245,7 @@ fun BluetoothScreen(
         }
 
         items(state.devices, key = { it.address }) { device ->
-            Card(onClick = { onConnect(device) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
+            io.ather.pro.ui.theme.GlassCard(modifier = Modifier.fillMaxWidth().clickable { onConnect(device) }, shape = RoundedCornerShape(18.dp)) {
                 Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Column(Modifier.weight(1f)) {
@@ -270,7 +271,7 @@ fun BluetoothScreen(
         }
 
         item {
-            Card(Modifier.fillMaxWidth()) {
+            io.ather.pro.ui.theme.GlassCard(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text("Packet log", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))

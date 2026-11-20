@@ -34,8 +34,10 @@ import io.ather.pro.domain.model.ScooterDashboardState
 import io.ather.pro.domain.range.PersonalizedEfficiency
 import io.ather.pro.domain.range.RangeEstimator
 import io.ather.pro.ui.visuals.ChargingGlow
-import io.ather.pro.ui.visuals.cardOutline
 import io.ather.pro.ui.visuals.chargingEdge
+import io.ather.pro.ui.theme.GlassCard
+import io.ather.pro.ui.theme.glassSurface
+import io.ather.pro.ui.theme.themeGlassSurface
 import kotlinx.coroutines.delay
 import java.text.DateFormat
 import java.util.Date
@@ -90,7 +92,7 @@ fun EnergySummaryCard(state: ScooterDashboardState, limit: ChargeLimitController
     val colors = MaterialTheme.colorScheme
     val accent = colors.primary
     val muted = colors.onSurfaceVariant
-    val chargeAccent = if (colors.surface.luminance() > 0.5f) Color(0xFF16A34A) else ChargingGlow
+    val chargeAccent = if (colors.surface.luminance() > 0.5f) Color(0xFF059669) else ChargingGlow
     val status = when {
         charging && fresh -> "Charging"
         charging -> "Charging · saved"
@@ -102,8 +104,7 @@ fun EnergySummaryCard(state: ScooterDashboardState, limit: ChargeLimitController
     val shape = RoundedCornerShape(28.dp)
     BoxWithConstraints(Modifier.fillMaxWidth()
         .clip(shape)
-        .background(Brush.linearGradient(listOf(colors.surfaceContainerHigh, colors.surfaceContainer, colors.surface)))
-        .cardOutline(shape, colors.onSurface.copy(alpha = 0.4f))
+        .glassSurface(shape, fillTop = Color.White.copy(alpha = 0.5f), fillBottom = Color.White.copy(alpha = 0.35f), borderColor = Color.White.copy(alpha = 0.6f), topHighlight = Color.White)
         .chargingEdge(fresh && plugged, shape, chargeAccent, flowing = charging)) {
         if (charging && fresh) {
             Box(Modifier.matchParentSize().background(Brush.verticalGradient(
@@ -220,7 +221,7 @@ fun ModeRangeCard(state: ScooterDashboardState) {
     val learned = PersonalizedEfficiency.fromTrips(state.recentTrips, System.currentTimeMillis())
     val ranges = RangeEstimator.modes(state.telemetry, state.modelForRange, learned)
     val colors = MaterialTheme.colorScheme
-    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
+    GlassCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             val soc = state.telemetry?.batterySoc?.takeIf { it.isFinite() && it in 0.0..100.0 }
             Text(soc?.let { "Range at ${number(it)}% battery" } ?: "Range by ride mode",
@@ -293,7 +294,7 @@ fun ChargeEstimateCard(state: ScooterDashboardState, target: Int) {
         state.settings.selectedModel.usableCapacityWh, state.settings.tariffRatePerKWh,
         state.modelForRange, learnedEfficiency(state))
     val colors = MaterialTheme.colorScheme
-    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
+    GlassCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (estimate == null) {
                 Text("Charge to $target%", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)

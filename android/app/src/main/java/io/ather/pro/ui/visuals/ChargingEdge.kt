@@ -31,7 +31,7 @@ import androidx.lifecycle.compose.currentStateAsState
 import kotlin.math.hypot
 
 /** Accent shared by charging visuals: dashboard pill, edge glow, notification tint. */
-val ChargingGlow = Color(0xFF4ADE80)
+val ChargingGlow = Color(0xFF34D399)
 
 /**
  * Charging glow that traces a card edge: a breathing halo plus — while the scooter

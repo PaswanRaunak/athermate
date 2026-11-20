@@ -4,6 +4,8 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -15,11 +17,16 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import io.ather.pro.ui.theme.themeGlassSurface
 import io.ather.pro.data.auth.AuthSession
 import io.ather.pro.domain.update.AppUpdateState
 import io.ather.pro.domain.charging.ChargeLimitController
@@ -91,20 +98,6 @@ fun AtherAppShell(
                 IconButton(onClick = onRefresh) { Icon(Icons.Default.Refresh, contentDescription = "Refresh scooter data") }
             })
         },
-        bottomBar = {
-            NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
-                Destination.entries.forEach { destination ->
-                    NavigationBarItem(selected = selected == destination, onClick = { selected = destination },
-                        icon = { Icon(destination.icon, contentDescription = null) }, label = { Text(destination.label) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.primary,
-                            selectedTextColor = MaterialTheme.colorScheme.primary,
-                            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant))
-                }
-            }
-        }
     ) { padding ->
         val shellColors = MaterialTheme.colorScheme
         Column(Modifier.fillMaxSize().padding(padding)
@@ -145,7 +138,7 @@ fun AtherAppShell(
                             ScooterArtwork.accountTitle(session.displayName),
                             onOpenCharging = { selected = Destination.CHARGING }, onOpenMap = { selected = Destination.MAP },
                             onClearTrips = onClearTrips)
-                        Destination.CHARGING -> LazyColumn(contentPadding = PaddingValues(18.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        Destination.CHARGING -> LazyColumn(contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 18.dp, bottom = 112.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                             item { FreshnessLabel(dashboard) }
                             item { ChargeLimitCard(chargeLimit, dashboard, onChargeLimitEnabledChange, onChargeLimitPercentChange, onChargeLimitRetry) }
                             item { ChargeEstimateCard(dashboard, chargeLimit.percent) }
@@ -154,7 +147,7 @@ fun AtherAppShell(
                             item { MonitoringCard(monitoring, chargeLimit.enabled, onMonitoringChange) }
                             item { ChargingHistoryCard(dashboard.chargingSessions, onClear = onClearChargingSessions) }
                         }
-                        Destination.MAP -> LazyColumn(contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Destination.MAP -> LazyColumn(contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 112.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             item { FreshnessLabel(dashboard) }
                             item { MapSection(gps = dashboard.telemetry?.gps, gpsUpdatedAt = dashboard.gpsUpdatedAt) }
                         }
@@ -162,6 +155,51 @@ fun AtherAppShell(
                         Destination.SETTINGS -> SettingsScreen(session, dashboard, monitoring, chargeLimit.enabled,
                             updateState, onCheckUpdate, onOpenUpdate, onMonitoringChange, onModelChange,
                             onArtworkColourChange, onTariffChange, onLogout)
+                    }
+                }
+                // Floating glass navigation pill.
+                Surface(
+                    modifier = Modifier.align(Alignment.BottomCenter)
+                        .padding(start = 22.dp, end = 22.dp, bottom = 10.dp)
+                        .fillMaxWidth()
+                        .shadow(18.dp, RoundedCornerShape(28.dp)),
+                    shape = RoundedCornerShape(28.dp),
+                    color = Color.Transparent
+                ) {
+                    Row(Modifier
+                        .background(Brush.verticalGradient(listOf(Color(0xFF182019), Color(0xFF0C100D))))
+                        .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(28.dp))
+                        .padding(horizontal = 8.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween) {
+                        Destination.entries.forEach { destination ->
+                            val sel = selected == destination
+                            Column(
+                                Modifier.weight(1f).clip(RoundedCornerShape(20.dp))
+                                    .clickable { selected = destination }
+                                    .padding(vertical = 6.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(3.dp)
+                            ) {
+                                Box(
+                                    Modifier.size(width = 42.dp, height = 30.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(
+                                            if (sel) MaterialTheme.colorScheme.primaryContainer
+                                            else Color.Transparent
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(destination.icon, contentDescription = destination.label,
+                                        modifier = Modifier.size(19.dp),
+                                        tint = if (sel) MaterialTheme.colorScheme.onPrimaryContainer
+                                        else MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                Text(destination.label, fontSize = 9.5.sp, maxLines = 1,
+                                    letterSpacing = 0.2.sp,
+                                    color = if (sel) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
                     }
                 }
             }

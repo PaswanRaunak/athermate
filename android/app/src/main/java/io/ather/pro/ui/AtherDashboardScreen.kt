@@ -25,7 +25,7 @@ fun AtherDashboardScreen(
     onClearTrips: () -> Unit
 ) {
     var details by rememberSaveable { mutableStateOf(false) }
-    LazyColumn(contentPadding = PaddingValues(18.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    LazyColumn(contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 18.dp, bottom = 112.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item { FreshnessLabel(dashboard) }
         dashboard.errorMessage?.let { error ->
             item { Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {

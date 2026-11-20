@@ -213,7 +213,7 @@ class ChargingNotificationManager private constructor(private val context: Conte
 
         return NotificationCompat.Builder(appContext, CHANNEL_PROGRESS_ID)
             .setSmallIcon(R.drawable.ic_stat_charging)
-            .setColor(0xFF4ADE80.toInt())
+            .setColor(0xFF34D399.toInt())
             .setContentTitle(title)
             .setContentText(contentText)
             .setProgress(100, socInt ?: 0, socInt == null)

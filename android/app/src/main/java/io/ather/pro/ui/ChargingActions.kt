@@ -98,14 +98,12 @@ private fun ChargingActions(
         else -> colors.onSurfaceVariant to "Charger not connected"
     }
 
-    Card(
+    io.ather.pro.ui.theme.GlassCard(
         modifier = modifier
             .fillMaxWidth()
             .semantics(mergeDescendants = true) {
                 contentDescription = "Charging status: $statusText"
-            },
-        colors = CardDefaults.cardColors(containerColor = colors.surface),
-        shape = RoundedCornerShape(24.dp)
+            }
     ) {
         Column(
             Modifier.fillMaxWidth().padding(20.dp),

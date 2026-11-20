@@ -47,6 +47,7 @@ import io.ather.pro.data.auth.AuthSession
 import io.ather.pro.data.auth.AuthStep
 import io.ather.pro.data.auth.AuthUiState
 import io.ather.pro.data.auth.DiscoveredScooter
+import io.ather.pro.ui.theme.GlassCard
 
 @Composable
 fun AuthScreen(
@@ -136,7 +137,7 @@ fun AuthScreen(
             }
         }
 
-        Card(shape = RoundedCornerShape(24.dp), modifier = Modifier.fillMaxWidth()) {
+        io.ather.pro.ui.theme.GlassCard(modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 when (state.step) {
                     AuthStep.PHONE -> PhoneStep(
